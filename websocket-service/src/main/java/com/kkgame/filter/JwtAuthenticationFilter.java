@@ -1,7 +1,6 @@
 package com.kkgame.filter;
 
 import com.kkgame.util.JwtUtil;
-import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,8 +43,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 设置安全上下文
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } catch (ExpiredJwtException e) {
-            log.warn("JWT token is expired: {}", e.getMessage());
         } catch (Exception e) {
             log.error("Cannot set user authentication", e);
         }

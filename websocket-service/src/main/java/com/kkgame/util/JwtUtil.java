@@ -3,7 +3,6 @@ package com.kkgame.util;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.ExpiredJwtException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -74,12 +73,7 @@ public class JwtUtil {
      * @return 所有声明
      */
     private Claims extractAllClaims(String token) {
-        try {
-            return Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token).getBody();
-        } catch (ExpiredJwtException e) {
-            // 即使令牌过期，也返回声明，以便可以获取用户信息
-            return e.getClaims();
-        }
+        return Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token).getBody();
     }
 
     /**
@@ -88,12 +82,7 @@ public class JwtUtil {
      * @return 如果已过期返回true，否则返回false
      */
     private Boolean isTokenExpired(String token) {
-        try {
-            return extractExpiration(token).before(new Date());
-        } catch (ExpiredJwtException e) {
-            // 如果解析时抛出过期异常，则令牌已过期
-            return true;
-        }
+        return extractExpiration(token).before(new Date());
     }
 
     /**
