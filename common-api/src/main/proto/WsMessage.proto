@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.kkgame.protobuf";
+option java_outer_classname = "WsMessage";
+
+enum ServerName {
+  // 未知
+  NONE = 0;
+  // websocket服务
+  WEBSOCKET_SERVICE = 1;
+  // a服务
+  A_SERVICE = 2;
+  // 匹配服务
+  MATCH_SERVICE = 3;
+}
+
+message MessageData {
+  // 客户端id
+  string clientId = 1;
+  // 服务名
+  ServerName serverName = 2;
+  // 消息体
+  bytes message = 3;
+}
+
+// 状态信息
+message StatusMsg {
+  // 状态码
+  int32 code = 1;
+  // 状态信息
+  string msg = 2;
+}
+
+// 连接通知消息
+message ConnectionNotification {
+  // 用户ID
+  string userId = 1;
+  // 会话ID
+  string sessionId = 2;
+  // 服务器ID
+  string serverId = 3;
+}

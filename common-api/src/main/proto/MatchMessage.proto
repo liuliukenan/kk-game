@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.kkgame.protobuf";
+option java_outer_classname = "MatchMessageProto";
+
+// 导入基础消息
+import "WsMessage.proto";
+
+enum MatchMessageCode {
+  MATCH_DEFAULT = 0;
+  // 匹配请求 MatchRequest MatchResponse
+  MATCH = 1;
+  // 取消匹配
+  CANCEL_MATCH = 2;
+}
+
+// 二级消息体
+message MatchSubMessageData {
+  // 命令号
+  MatchMessageCode messageCode = 1;
+  // 消息内容
+  bytes message = 2;
+}
+
+// 匹配请求
+message MatchRequest {
+  // 游戏服务
+  ServerName serverName = 1;
+}
+// 匹配响应
+message MatchResponse {
+  // 响应信息
+  optional StatusMsg  statusMsg = 1;
+  // 游戏服务
+  ServerName serverName = 2;
+  // 房间id
+  string roomId = 3;
+}
+
