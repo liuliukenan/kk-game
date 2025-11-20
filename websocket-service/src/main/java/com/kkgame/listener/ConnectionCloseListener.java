@@ -4,21 +4,20 @@ import com.google.protobuf.util.JsonFormat;
 import com.kkgame.manager.SessionManager;
 import com.kkgame.protobuf.ConnectionNotification;
 import com.kkgame.util.ServerIdUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
 
-@Component
-public class ConnectionCloseListener implements MessageListener {
+import javax.annotation.Resource;
 
-    private static final Logger log = LoggerFactory.getLogger(ConnectionCloseListener.class);
+@Component
+@Slf4j
+public class ConnectionCloseListener implements MessageListener {
 
     public static final String CONNECTION_CLOSE_CHANNEL = "connection:close";
 
-    @Autowired
+    @Resource
     private SessionManager sessionManager;
 
     @Override

@@ -4,6 +4,7 @@ import com.google.protobuf.util.JsonFormat;
 import com.kkgame.api.DubboApi;
 import com.kkgame.constans.RedisKeyUtil;
 import com.kkgame.enums.ServerNameEnum;
+import com.kkgame.listener.ConnectionCloseListener;
 import com.kkgame.manager.SessionManager;
 import com.kkgame.protobuf.ConnectionNotification;
 import com.kkgame.protobuf.MessageData;
@@ -43,7 +44,7 @@ public class WebSocketService {
                 log.info("关闭用户 {} 在当前服务器上的旧连接", userId);
             }
 
-            // 向所有服务实例广播连接建立消息
+            // 向所有ws服务实例广播连接建立消息
             notifyAllInstances(userId, session.getId());
 
             // 建立新连接
@@ -128,7 +129,7 @@ public class WebSocketService {
             log.info("广播新连接消息: {}", message);
             // 使用Base64编码二进制数据以便通过StringRedisTemplate传输
             String encodedData = java.util.Base64.getUrlEncoder().encodeToString(notification.toByteArray());
-            stringRedisTemplate.convertAndSend("connection:close", encodedData);
+            stringRedisTemplate.convertAndSend(ConnectionCloseListener.CONNECTION_CLOSE_CHANNEL, encodedData);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
             log.error("序列化连接通知消息失败", e);
         }
