@@ -172,9 +172,6 @@ public class ClientApiManager {
                             // 直接连接到指定的IP和端口
                             reference.setUrl("dubbo://" + ipAndPort + "/" + DubboApi.class.getName());
                             log.info("绑定到服务对应的实例 {} {} {}", userId, serverName, ipAndPort);
-
-                            // 注册服务实例信息用于健康检查
-//                            ServiceInstanceListener.registerServiceInstance(serverName, ipAndPort);
                         } else {
                             log.info("随机选择一个实例 {} {}", userId, serverName);
                         }

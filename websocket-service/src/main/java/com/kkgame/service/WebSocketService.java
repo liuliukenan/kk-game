@@ -1,7 +1,6 @@
 package com.kkgame.service;
 
 import com.google.protobuf.util.JsonFormat;
-import com.kkgame.api.DubboApi;
 import com.kkgame.constans.RedisKeyUtil;
 import com.kkgame.enums.ServerNameEnum;
 import com.kkgame.listener.ConnectionCloseListener;
@@ -11,6 +10,7 @@ import com.kkgame.protobuf.MessageData;
 import com.kkgame.protobuf.ServerName;
 import com.kkgame.util.ClientApiManager;
 import com.kkgame.util.DubboServiceUtil;
+import com.kkgame.util.MessageProcessor;
 import com.kkgame.util.ServerIdUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -33,6 +33,7 @@ public class WebSocketService {
     // 注入会话管理器
     @Resource
     private SessionManager sessionManager;
+
 
     public void handleConnectionEstablished(WebSocketSession session) {
         String userId = (String) session.getAttributes().get("userId");
@@ -80,14 +81,10 @@ public class WebSocketService {
             // 构建新消息
             MessageData newMessageData = messageData.toBuilder().setUserId(userId).build();
 
-            // 将消息发送给已分配的服务处理
             log.info("转发给{}服务, userId: {}, message: {}", serverName, userId, JsonFormat.printer().print(newMessageData));
 
-            // 使用公共模块的方法处理消息
-            DubboApi api = ClientApiManager.fetchClientApi(userId, serverName);
-            if (api != null) {
-                api.processMessageProto(newMessageData.toByteArray());
-            }
+            // 转发消息
+            MessageProcessor.sendMessage(userId, serverName, newMessageData);
         } catch (Exception e) {
             log.error("Error handling binary message", e);
         }
@@ -214,5 +211,4 @@ public class WebSocketService {
     public void removeClientApi(String userId) {
         ClientApiManager.remove(userId);
     }
-
 }

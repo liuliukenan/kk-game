@@ -44,7 +44,7 @@ public class MatchDubboApiImpl implements DubboApi {
                 addToMatchingQueue(messageData.getUserId(), subMessageData);
                 break;
             case CANCEL_MATCH:
-                log.warn("Player " + clientId + " cancelled match");
+                log.warn("Player {} cancelled match", clientId);
                 break;
             default:
                 break;

@@ -28,17 +28,17 @@ public class ProtoBase64Util {
         return MessageData.parseFrom(bytes);
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         // 编码示例
         // match-service: EAMaBggBEgIIAg==
         // a-service: EAIaCAgBEgQIARAB
         MatchSubMessageData subMessageData = MatchSubMessageData.newBuilder()
-                .setMessageCode(MatchMessageCode.MATCH)
+                .setMessageCode(MatchMessageCode.CANCEL_MATCH)
                 .setMessage(
                         MatchRequest.newBuilder().setServerName(ServerName.A_SERVICE).build().toByteString())
                 .build();
         String base641 = toBase64(subMessageData.toByteArray(), ServerName.MATCH_SERVICE);
-        System.out.println("发送用的 Base64: " + base641);
+        System.out.println("匹配服 发送用的 Base64: " + base641);
 
 
         ASubMessageData aSubMessageData = ASubMessageData.newBuilder()
