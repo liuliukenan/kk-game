@@ -9,12 +9,12 @@ import com.kkgame.protobuf.MessageData;
 
 public class MessageBuildUtil {
 
-    public static MessageData buildMessageData(String clientId, AMessageCode messageCode, byte[] message) {
+    public static MessageData buildMessageData(String userId, AMessageCode messageCode, byte[] message) {
         ASubMessageData subMessageData = ASubMessageData.newBuilder()
                 .setMessageCode(messageCode)
                 .setMessage(ByteString.copyFrom(message)).build();
         return MessageData.newBuilder()
-                .setClientId(clientId)
+                .setUserId(userId)
                 .setServerName(ServerNameEnum.fetchProtoServerName(SpringUtil.getProperty("spring.application.name")))
                 .setMessage(ByteString.copyFrom(subMessageData.toByteArray()))
                 .build();

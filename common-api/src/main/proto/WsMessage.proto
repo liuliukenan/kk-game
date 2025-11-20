@@ -16,8 +16,8 @@ enum ServerName {
 }
 
 message MessageData {
-  // 客户端id
-  string clientId = 1;
+  // 玩家id
+  string userId = 1;
   // 服务名
   ServerName serverName = 2;
   // 消息体

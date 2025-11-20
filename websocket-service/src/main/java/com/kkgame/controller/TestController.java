@@ -1,6 +1,6 @@
 package com.kkgame.controller;
 
-import com.kkgame.handler.MyWebSocketHandler;
+import com.kkgame.service.WebSocketService;
 import com.kkgame.util.JwtUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +17,9 @@ public class TestController {
 
     @Autowired
     private JwtUtil jwtUtil;
-    
+
     @Autowired
-    private MyWebSocketHandler webSocketHandler;
+    private WebSocketService webSocketService;
 
     @GetMapping("/generate-token")
     public String generateToken(@RequestParam("userId") String userId) {
@@ -34,11 +34,11 @@ public class TestController {
         log.info("generate-token1: {}", s);
         return s;
     }
-    
+
     @GetMapping("/ws-stats")
     public Map<String, Object> getWebSocketStats() {
         Map<String, Object> stats = new HashMap<>();
-        stats.put("totalConnections", webSocketHandler.getTotalConnectionCount());
+        stats.put("totalConnections", webSocketService.getTotalConnectionCount());
         return stats;
     }
 }

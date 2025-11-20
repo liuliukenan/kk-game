@@ -33,7 +33,7 @@ public class MatchDubboApiImpl implements DubboApi {
     @Override
     public void processMessageProto(byte[] bytes) throws Exception {
         MessageData messageData = MessageData.parseFrom(bytes);
-        String clientId = messageData.getClientId();
+        String clientId = messageData.getUserId();
         MatchSubMessageData subMessageData = MatchSubMessageData.parseFrom(messageData.getMessage());
         log.info("收到消息 clientId: {} messageData: {}", clientId, JsonFormat.printer().print(messageData));
         log.info("收到消息 clientId: {} subMessageData: {}", clientId, JsonFormat.printer().print(subMessageData));
@@ -41,7 +41,7 @@ public class MatchDubboApiImpl implements DubboApi {
         MatchMessageCode messageCode = subMessageData.getMessageCode();
         switch (messageCode) {
             case MATCH:
-                addToMatchingQueue(messageData.getClientId(), subMessageData);
+                addToMatchingQueue(messageData.getUserId(), subMessageData);
                 break;
             case CANCEL_MATCH:
                 log.warn("Player " + clientId + " cancelled match");

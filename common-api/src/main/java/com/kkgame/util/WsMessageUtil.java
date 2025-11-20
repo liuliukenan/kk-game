@@ -15,21 +15,21 @@ public class WsMessageUtil {
      * @param messageData 消息数据
      */
     public static void notifyPlayer(MessageData messageData) {
-        String clientId = messageData.getClientId();
+        String userId = messageData.getUserId();
         try {
             // 使用公共模块的方法处理消息
-            DubboApi api = ClientApiManager.fetchClientApi(clientId, ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
+            DubboApi api = ClientApiManager.fetchClientApi(userId, ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
             if (api != null) {
                 api.processMessageProto(messageData.toByteArray());
             }
         } catch (Exception e) {
-            log.error("Failed to notify player: " + clientId, e);
+            log.error("Failed to notify player: " + userId, e);
         }
     }
 
     public static void clearPlayerCache(String clientId, String serverName) {
         MessageData build = MessageData.newBuilder()
-                .setClientId(clientId)
+                .setUserId(clientId)
                 .setServerName(ServerNameEnum.fetchProtoServerName(serverName))
                 .build();
         try {
@@ -39,7 +39,7 @@ public class WsMessageUtil {
                 api.clearDubboApiCache(build.toByteArray());
             }
         } catch (Exception e) {
-            log.error("Failed to clearPlayerCache: " + clientId, e);
+            log.error("Failed to clearPlayerCache: {}", clientId, e);
         }
     }
 }

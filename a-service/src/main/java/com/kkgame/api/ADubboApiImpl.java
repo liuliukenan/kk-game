@@ -21,12 +21,12 @@ public class ADubboApiImpl implements DubboApi {
     public void processMessageProto(byte[] bytes) throws Exception {
         MessageData messageData = MessageData.parseFrom(bytes);
         ByteString message = messageData.getMessage();
-        String clientId = messageData.getClientId();
+        String userId = messageData.getUserId();
         ASubMessageData subMessageData = ASubMessageData.parseFrom(message);
         SitDownRequest sitDownRequest = SitDownRequest.parseFrom(subMessageData.getMessage());
-        log.info("收到消息 clientId: {} messageData: {}", clientId, JsonFormat.printer().print(messageData));
-        log.info("收到消息 clientId: {} subMessageData: {}", clientId, JsonFormat.printer().print(subMessageData));
-        log.info("收到消息 clientId: {} sitDownRequest: {}", clientId, JsonFormat.printer().print(sitDownRequest));
+        log.info("收到消息 userId: {} messageData: {}", userId, JsonFormat.printer().print(messageData));
+        log.info("收到消息 userId: {} subMessageData: {}", userId, JsonFormat.printer().print(subMessageData));
+        log.info("收到消息 userId: {} sitDownRequest: {}", userId, JsonFormat.printer().print(sitDownRequest));
 
 
         SitDownResponse response = SitDownResponse.newBuilder()
@@ -34,8 +34,8 @@ public class ADubboApiImpl implements DubboApi {
                 .setGameId(1)
                 .setRoomId(1)
                 .build();
-        MessageData messageData1 = MessageBuildUtil.buildMessageData(clientId, AMessageCode.SIT_DOWN, response.toByteArray());
-        log.info("返回消息 clientId: {} response: {}", clientId, JsonFormat.printer().print(response));
+        MessageData messageData1 = MessageBuildUtil.buildMessageData(userId, AMessageCode.SIT_DOWN, response.toByteArray());
+        log.info("返回消息 userId: {} response: {}", userId, JsonFormat.printer().print(response));
         WsMessageUtil.notifyPlayer(messageData1);
 
     }

@@ -1,7 +1,6 @@
 package com.kkgame.manager;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
@@ -10,13 +9,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
+@Slf4j
 public class SessionManager {
-    
-    private static final Logger log = LoggerFactory.getLogger(SessionManager.class);
-    
+
     // 使用userId作为key的会话映射
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
-    
+
     /**
      * 添加会话
      * @param userId 用户ID
@@ -26,7 +24,7 @@ public class SessionManager {
         sessions.put(userId, session);
         log.info("添加会话: 用户ID={}, 会话ID={}", userId, session.getId());
     }
-    
+
     /**
      * 移除会话
      * @param userId 用户ID
@@ -37,7 +35,7 @@ public class SessionManager {
             log.info("移除会话: 用户ID={}, 会话ID={}", userId, removed.getId());
         }
     }
-    
+
     /**
      * 获取会话
      * @param userId 用户ID
@@ -46,7 +44,7 @@ public class SessionManager {
     public WebSocketSession getSession(String userId) {
         return sessions.get(userId);
     }
-    
+
     /**
      * 检查会话是否存在且处于打开状态
      * @param userId 用户ID
@@ -56,7 +54,7 @@ public class SessionManager {
         WebSocketSession session = sessions.get(userId);
         return session != null && session.isOpen();
     }
-    
+
     /**
      * 关闭指定会话
      * @param userId 用户ID
@@ -75,7 +73,7 @@ public class SessionManager {
             log.info("连接对应的用户 {} 不存在或已关闭", userId);
         }
     }
-    
+
     /**
      * 获取当前会话总数
      * @return 会话总数

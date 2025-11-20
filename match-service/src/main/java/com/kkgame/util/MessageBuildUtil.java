@@ -8,12 +8,12 @@ import com.kkgame.protobuf.MessageData;
 
 public class MessageBuildUtil {
 
-    public static MessageData buildMessageData(String clientId, MatchMessageCode messageCode, byte[] message) {
+    public static MessageData buildMessageData(String userId, MatchMessageCode messageCode, byte[] message) {
         MatchSubMessageData subMessageData = MatchSubMessageData.newBuilder()
                 .setMessageCode(messageCode)
                 .setMessage(ByteString.copyFrom(message)).build();
         return MessageData.newBuilder()
-                .setClientId(clientId)
+                .setUserId(userId)
                 .setServerName(ServerNameEnum.fetchProtoServerName(CommonUtil.fetchLocalServerName()))
                 .setMessage(ByteString.copyFrom(subMessageData.toByteArray()))
                 .build();

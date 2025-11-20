@@ -3,10 +3,10 @@ package com.kkgame.listener;
 import com.google.protobuf.util.JsonFormat;
 import com.kkgame.manager.SessionManager;
 import com.kkgame.protobuf.ConnectionNotification;
+import com.kkgame.util.ServerIdUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
@@ -21,34 +21,18 @@ public class ConnectionCloseListener implements MessageListener {
     @Autowired
     private SessionManager sessionManager;
 
-    // 注入当前服务器ID
-    @Value("${server.port}")
-    private int serverPort;
-
-    // 当前服务器标识
-    private String currentServerId;
-
-    @javax.annotation.PostConstruct
-    public void init() throws java.net.UnknownHostException {
-        // 获取本机IP地址
-        java.net.InetAddress localHost = java.net.InetAddress.getLocalHost();
-        // 服务器IP地址
-        String serverIpAddress = localHost.getHostAddress();
-        currentServerId = serverIpAddress + ":" + serverPort;
-    }
-
     @Override
     public void onMessage(Message message, byte[] pattern) {
         String channel = new String(message.getChannel());
-        String messageBody = new String(message.getBody());
-        log.info("收到消息: 频道={}, 内容={}", channel, messageBody);
+        byte[] body = message.getBody();
+        log.info("收到消息: 频道={}", channel);
         try {
             if (CONNECTION_CLOSE_CHANNEL.equals(channel)) {
                 // 处理连接关闭消息
-                handleCloseConnection(messageBody);
+                handleCloseConnection(body);
             }
         } catch (Exception e) {
-            log.error("处理消息时出错: {}", messageBody, e);
+            log.error("处理消息时出错 ", e);
         }
     }
 
@@ -56,19 +40,20 @@ public class ConnectionCloseListener implements MessageListener {
      * 处理连接关闭消息
      * @param messageBody 消息内容 (格式: userId:sessionId:serverId)
      */
-    private void handleCloseConnection(String messageBody) {
+    private void handleCloseConnection(byte[] messageBody) {
         try {
             // 解析连接通知消息
-            ConnectionNotification.Builder builder = ConnectionNotification.newBuilder();
-            JsonFormat.parser().merge(messageBody, builder);
-            ConnectionNotification notification = builder.build();
+            String messageString = new String(messageBody);
+            byte[] decodedData = java.util.Base64.getUrlDecoder().decode(messageString);
+            ConnectionNotification notification = ConnectionNotification.parseFrom(decodedData);
+            log.info("handleCloseConnection message: {}", JsonFormat.printer().print(notification));
 
             String userId = notification.getUserId();
             String sessionId = notification.getSessionId();
             String serverId = notification.getServerId();
 
             // 判断是否是当前服务器发送的消息，如果是则跳过处理
-            if (currentServerId.equals(serverId)) {
+            if (ServerIdUtil.fetchLocalServerId().equals(serverId)) {
                 log.info("收到本服务器发出的消息，跳过处理: 用户 {} 在服务器 {} 上的连接 {}", userId, serverId, sessionId);
                 return;
             }

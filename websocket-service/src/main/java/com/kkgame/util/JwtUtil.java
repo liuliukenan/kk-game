@@ -23,15 +23,6 @@ public class JwtUtil {
     private String SECRET_KEY;
 
     /**
-     * 从JWT令牌中提取用户名
-     * @param token JWT令牌
-     * @return 用户名
-     */
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    /**
      * 从JWT令牌中提取用户ID
      * @param token JWT令牌
      * @return 用户ID
@@ -107,7 +98,7 @@ public class JwtUtil {
                 .setClaims(claims)
                 .setSubject("websocket-user")
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 30)) // 缩短为30分钟过期
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
                 .signWith(SignatureAlgorithm.HS512, SECRET_KEY)
                 .compact();
     }

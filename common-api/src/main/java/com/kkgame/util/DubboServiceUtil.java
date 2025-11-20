@@ -39,9 +39,9 @@ public class DubboServiceUtil {
                 return instance.getIp() + ":" + instance.getPort();
             }
         } catch (NacosException ex) {
-            log.error("Failed to get a-service instance info", ex);
+            log.error("Failed to fetchDubboApi a-service instance info", ex);
         }
-        throw new RuntimeException("Failed to get a-service instance info");
+        throw new RuntimeException("Failed to fetchDubboApi a-service instance info");
     }
 
     public static String getLocalServiceInstanceInfo() {
@@ -61,7 +61,7 @@ public class DubboServiceUtil {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        throw new RuntimeException("Failed to get service instance info");
+        throw new RuntimeException("Failed to fetchDubboApi service instance info");
     }
 
 
