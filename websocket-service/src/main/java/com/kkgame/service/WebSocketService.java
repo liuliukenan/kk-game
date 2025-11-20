@@ -12,13 +12,13 @@ import com.kkgame.util.ClientApiManager;
 import com.kkgame.util.DubboServiceUtil;
 import com.kkgame.util.ServerIdUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
 
+import javax.annotation.Resource;
 import java.nio.ByteBuffer;
 
 @Service
@@ -26,11 +26,11 @@ import java.nio.ByteBuffer;
 public class WebSocketService {
 
     // 注入Redis模板
-    @Autowired
+    @Resource
     private StringRedisTemplate stringRedisTemplate;
 
     // 注入会话管理器
-    @Autowired
+    @Resource
     private SessionManager sessionManager;
 
     public void handleConnectionEstablished(WebSocketSession session) {
