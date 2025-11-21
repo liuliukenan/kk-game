@@ -9,9 +9,9 @@ import com.kkgame.protobuf.ConnectionNotification;
 import com.kkgame.protobuf.MessageData;
 import com.kkgame.protobuf.ServerName;
 import com.kkgame.util.ClientApiManager;
+import com.kkgame.util.CommonUtil;
 import com.kkgame.util.DubboServiceUtil;
 import com.kkgame.util.MessageProcessor;
-import com.kkgame.util.ServerIdUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -81,7 +81,7 @@ public class WebSocketService {
             // 构建新消息
             MessageData newMessageData = messageData.toBuilder().setUserId(userId).build();
 
-            log.info("转发给{}服务, userId: {}, message: {}", serverName, userId, JsonFormat.printer().print(newMessageData));
+            log.info("转发给{}服务, userId: {}", serverName, userId);
 
             // 转发消息
             MessageProcessor.sendMessage(userId, serverName, newMessageData);
@@ -92,19 +92,14 @@ public class WebSocketService {
 
     public void handleConnectionClosed(WebSocketSession session, CloseStatus status) {
         String userId = (String) session.getAttributes().get("userId");
-        String sessionId = session.getId();
         if (userId != null) {
+            // 关闭会话
             removeSession(userId);
-            // 连接关闭时清理缓存
-            removeClientApi(sessionId);
             // 清理Redis中的用户与websocket实例映射关系
             clearUserWebSocketMapping(userId);
-            log.info("WebSocket connection closed: {}，用户ID: {}，服务器: {} status:{}", sessionId, userId, ServerIdUtil.fetchLocalServerId(), status);
+            log.info("WebSocket connection closed: {}，用户ID: {}，服务器: {} status:{}", session.getId(), userId, CommonUtil.fetchLocalServerId(), status);
         } else {
-            // 匿名连接不应该发生，但为了安全起见还是处理一下
-            removeClientApi(sessionId);
-            clearUserWebSocketMapping(sessionId);
-            log.info("WebSocket connection closed: {}", sessionId);
+            log.error("意想不到的错误，无法获取用户ID");
         }
     }
 
@@ -118,12 +113,12 @@ public class WebSocketService {
         ConnectionNotification notification = ConnectionNotification.newBuilder()
                 .setUserId(userId)
                 .setSessionId(sessionId)
-                .setServerId(ServerIdUtil.fetchLocalServerId())
+                .setServerId(CommonUtil.fetchLocalServerId())
                 .build();
 
         try {
             String message = JsonFormat.printer().print(notification);
-            log.info("广播新连接消息: {}", message);
+            log.info("广播redis监听消息 新连接建立: {}", message);
             // 使用Base64编码二进制数据以便通过StringRedisTemplate传输
             String encodedData = java.util.Base64.getUrlEncoder().encodeToString(notification.toByteArray());
             stringRedisTemplate.convertAndSend(ConnectionCloseListener.CONNECTION_CLOSE_CHANNEL, encodedData);
@@ -139,12 +134,12 @@ public class WebSocketService {
     public void storeUserWebSocketMapping(String userId) {
         try {
             String serverName = ServerNameEnum.WEBSOCKET_SERVICE.getServerName();
-            String redisKey = RedisKeyUtil.USER_SERVER_KEY + serverName;
+            String userServerKey = RedisKeyUtil.fetchUserServerKey(serverName);
             // 使用Dubbo服务地址，用于其他服务与WS服务通信
             String ipAndPort = DubboServiceUtil.getLocalServiceInstanceInfo();
 
             // 使用 serverName 作为 key，ipAndPort 作为 value 存储
-            stringRedisTemplate.opsForHash().put(redisKey, userId, ipAndPort);
+            stringRedisTemplate.opsForHash().put(userServerKey, userId, ipAndPort);
             log.info("玩家ws链接信息写入redis {}: {}", userId, ipAndPort);
         } catch (Exception e) {
             log.error("Failed to store user to websocket instance mapping for user: {}", userId, e);
@@ -157,7 +152,7 @@ public class WebSocketService {
      */
     public void clearUserWebSocketMapping(String userId) {
         try {
-            String redisKey = RedisKeyUtil.USER_SERVER_KEY + ServerNameEnum.WEBSOCKET_SERVICE.getServerName();
+            String redisKey = RedisKeyUtil.fetchUserServerKey(ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
             stringRedisTemplate.opsForHash().delete(redisKey, userId);
             log.info("Cleared user to websocket instance mapping for user: {}", userId);
         } catch (Exception e) {
@@ -190,14 +185,17 @@ public class WebSocketService {
 
     public void closeSession(String userId, String reason) {
         sessionManager.closeSession(userId, reason);
+        log.info("closeSession, userId: {}, reason: {}", userId, reason);
     }
 
     public void addSession(String userId, WebSocketSession session) {
         sessionManager.addSession(userId, session);
+        log.info("addSession, userId: {}", userId);
     }
 
     public void removeSession(String userId) {
         sessionManager.removeSession(userId);
+        log.info("removeSession, userId: {}", userId);
     }
 
     public String getServerNameString(ServerName serverName) {

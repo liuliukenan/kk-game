@@ -6,6 +6,7 @@ import com.google.protobuf.util.JsonFormat;
 import com.kkgame.enums.ServerNameEnum;
 import com.kkgame.protobuf.*;
 import com.kkgame.util.*;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @DubboService(group = "match-service")
 @Service
+@Slf4j
 public class MatchDubboApiImpl implements DubboApi {
-
-    private static final Logger log = LoggerFactory.getLogger(MatchDubboApiImpl.class);
 
     // 存储等待匹配的玩家列表
     private final List<String> waitingPlayers = new CopyOnWriteArrayList<>();

@@ -3,7 +3,7 @@ package com.kkgame.listener;
 import com.google.protobuf.util.JsonFormat;
 import com.kkgame.manager.SessionManager;
 import com.kkgame.protobuf.ConnectionNotification;
-import com.kkgame.util.ServerIdUtil;
+import com.kkgame.util.CommonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
@@ -24,7 +24,7 @@ public class ConnectionCloseListener implements MessageListener {
     public void onMessage(Message message, byte[] pattern) {
         String channel = new String(message.getChannel());
         byte[] body = message.getBody();
-        log.info("收到消息: 频道={}", channel);
+        log.info("收到redis监听消息: channel={}", channel);
         try {
             if (CONNECTION_CLOSE_CHANNEL.equals(channel)) {
                 // 处理连接关闭消息
@@ -52,7 +52,7 @@ public class ConnectionCloseListener implements MessageListener {
             String serverId = notification.getServerId();
 
             // 判断是否是当前服务器发送的消息，如果是则跳过处理
-            if (ServerIdUtil.fetchLocalServerId().equals(serverId)) {
+            if (CommonUtil.fetchLocalServerId().equals(serverId)) {
                 log.info("收到本服务器发出的消息，跳过处理: 用户 {} 在服务器 {} 上的连接 {}", userId, serverId, sessionId);
                 return;
             }

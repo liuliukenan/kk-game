@@ -3,43 +3,35 @@ package com.kkgame.util;
 import com.kkgame.api.DubboApi;
 import com.kkgame.enums.ServerNameEnum;
 import com.kkgame.protobuf.MessageData;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class WsMessageUtil {
 
-    private static final Logger log = LoggerFactory.getLogger(WsMessageUtil.class);
-
     /**
-     * 通知单个玩家
+     * 通知ws服务
      * @param messageData 消息数据
      */
     public static void notifyPlayer(MessageData messageData) {
-        String userId = messageData.getUserId();
-        try {
-            // 使用公共模块的方法处理消息
-            DubboApi api = ClientApiManager.fetchClientApi(userId, ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
-            if (api != null) {
-                api.processMessageProto(messageData.toByteArray());
-            }
-        } catch (Exception e) {
-            log.error("Failed to notify player: " + userId, e);
-        }
+        MessageProcessor.sendMessage(messageData.getUserId(), ServerNameEnum.WEBSOCKET_SERVICE.getServerName(), messageData);
     }
 
-    public static void clearPlayerCache(String clientId, String serverName) {
-        MessageData build = MessageData.newBuilder()
-                .setUserId(clientId)
+    /**
+     * 同步通知ws服务清除玩家缓存
+     */
+    public static void clearPlayerCache(String userId, String serverName) {
+        MessageData messageData = MessageData.newBuilder()
+                .setUserId(userId)
                 .setServerName(ServerNameEnum.fetchProtoServerName(serverName))
                 .build();
         try {
             // 使用公共模块的方法处理消息
-            DubboApi api = ClientApiManager.fetchClientApi(clientId, ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
+            DubboApi api = ClientApiManager.fetchClientApi(messageData.getUserId(), ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
             if (api != null) {
-                api.clearDubboApiCache(build.toByteArray());
+                api.clearDubboApiCache(messageData.toByteArray());
             }
         } catch (Exception e) {
-            log.error("Failed to clearPlayerCache: {}", clientId, e);
+            log.error("Failed to clearPlayerCache: {}", messageData.getUserId(), e);
         }
     }
 }

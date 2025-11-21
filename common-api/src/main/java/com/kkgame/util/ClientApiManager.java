@@ -12,9 +12,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,49 +22,20 @@ import java.util.concurrent.locks.ReentrantLock;
 @Slf4j
 public class ClientApiManager {
 
-    // 缓存用户与DubboApi实例的映射关系
-    // 外层key: userId, 里层key: serverName, value: DubboApi实例
-    // 使用Hutool的TimedCache，30分钟过期，自动清理
-    private static final TimedCache<String, Map<String, DubboApi>> clientApiMap = CacheUtil.newTimedCache(30 * 60 * 1000, 30 * 60 * 1000);
+    // 缓存用户与服务实例的映射关系 (userId_serverName -> ipAndPort)
+    // 使用Hutool的TimedCache，5分钟过期，自动清理
+    private static final TimedCache<String, String> userServerCache = CacheUtil.newTimedCache(5 * 60 * 1000, 5 * 60 * 1000);
 
-    // 缓存ReferenceConfig实例，按serverName缓存，多个用户共享
+    // 缓存ReferenceConfig实例，按serverName和ipAndPort缓存，所有用户共享
+    // key: serverName_ipAndPort, value: ReferenceConfig实例
     private static final Map<String, ReferenceConfig<DubboApi>> referenceCache = new ConcurrentHashMap<>();
 
-    // 记录ReferenceConfig的最后使用时间，用于清理长时间未使用的引用
-    private static final Map<String, Long> referenceLastUsedTime = new ConcurrentHashMap<>();
-
-    // 用于保护对referenceCache和referenceLastUsedTime的并发访问
+    // 用于保护对referenceCache的并发访问
     private static final Map<String, Lock> locks = new ConcurrentHashMap<>();
 
-    // 定时清理器
-    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-
-    // 静态初始化块，设置系统属性以解决Java 17兼容性问题
     static {
-        // 禁用Hessian的字节码优化，避免Java 17模块访问限制问题
-        System.setProperty("dubbo.serialize.by.bytecode", "false");
-        // 设置默认序列化方式为native/hessian2，避免Hessian兼容性问题
-        System.setProperty("dubbo.serialization", "hessian2");
-
-        // 启动定时任务，每10分钟检查一次，清理30分钟内未使用的ReferenceConfig
-        scheduler.scheduleWithFixedDelay(ClientApiManager::cleanExpiredReferences, 10, 10, TimeUnit.MINUTES);
-    }
-
-    /**
-     * 添加客户端和服务实例的映射关系
-     *
-     * @param userId     用户ID
-     * @param serverName 服务名称
-     * @param api        Dubbo服务实例
-     */
-    public static void put(String userId, String serverName, DubboApi api) {
-        Map<String, DubboApi> innerMap = clientApiMap.get(userId);
-        if (innerMap == null) {
-            innerMap = new ConcurrentHashMap<>();
-            clientApiMap.put(userId, innerMap);
-        }
-        innerMap.put(serverName, api);
-        log.info("添加用户API缓存 userId:{} servername:{} api:{} clientApiMap size:{}", userId, serverName, api, clientApiMap.size());
+        // 启动定时任务，每5分钟清理一次过期的用户服务映射缓存
+        userServerCache.schedulePrune(5 * 60 * 1000);
     }
 
     /**
@@ -78,11 +46,68 @@ public class ClientApiManager {
      * @return Dubbo服务实例
      */
     public static DubboApi fetchDubboApi(String userId, String serverName) {
-        Map<String, DubboApi> innerMap = clientApiMap.get(userId);
-        if (innerMap != null) {
-            return innerMap.get(serverName);
+        // 所有用户共享同一个ReferenceConfig实例
+        // 先从本地缓存获取ipAndPort
+        String cacheKey = userId + "_" + serverName;
+        String ipAndPort = userServerCache.get(cacheKey);
+
+        // 如果本地缓存没有，则从Redis获取
+        if (ipAndPort == null) {
+            StringRedisTemplate redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
+            String redisKey = RedisKeyUtil.fetchUserServerKey(serverName);
+
+            // 从Redis中获取指定serverName对应的ipAndPort
+            ipAndPort = (String) redisTemplate.opsForHash().get(redisKey, userId);
+
+            // 放入本地缓存
+            if (ipAndPort != null) {
+                userServerCache.put(cacheKey, ipAndPort);
+            }
         }
-        return null;
+
+        // 生成Reference缓存key（基于serverName和ipAndPort）
+        String referenceCacheKey = generateCacheKey(serverName, ipAndPort);
+
+        // 先尝试无锁获取ReferenceConfig实例
+        ReferenceConfig<DubboApi> reference = referenceCache.get(referenceCacheKey);
+        if (reference == null) {
+            // 获取针对该referenceCacheKey的锁
+            Lock lock = locks.computeIfAbsent(referenceCacheKey, k -> new ReentrantLock());
+
+            lock.lock();
+            try {
+                reference = referenceCache.get(referenceCacheKey);
+                if (reference == null) {
+                    reference = new ReferenceConfig<>();
+                    reference.setInterface(DubboApi.class);
+                    // 适当增加超时时间
+                    reference.setTimeout(3000);
+                    // 重试次数
+                    reference.setRetries(1);
+                    reference.setScope("remote");
+                    reference.setSticky(true);
+                    // 轮询负载均衡
+                    reference.setLoadbalance("roundrobin");
+                    reference.setGroup(serverName);
+                    if (StringUtils.hasLength(ipAndPort)) {
+                        // 直接连接到指定的IP和端口
+                        reference.setUrl("dubbo://" + ipAndPort + "/" + DubboApi.class.getName());
+                        log.info("绑定到服务对应的实例 {} {} {}", userId, serverName, ipAndPort);
+                    } else {
+                        log.info("随机选择一个实例 {} {}", userId, serverName);
+                    }
+
+                    // 将新创建的ReferenceConfig放入缓存
+                    referenceCache.put(referenceCacheKey, reference);
+                    log.info("创建共享ReferenceConfig实例 {} {} {} {}", userId, serverName, ipAndPort, reference);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        // 每次都通过ReferenceConfig获取新的DubboApi代理实例
+        return reference.get();
     }
 
     /**
@@ -91,7 +116,15 @@ public class ClientApiManager {
      * @param userId 用户ID
      */
     public static void remove(String userId) {
-        clientApiMap.remove(userId);
+        // 由于使用共享ReferenceConfig实例，不需要为单个用户移除
+        log.info("用户 {} 的API缓存移除请求被忽略（使用共享ReferenceConfig实例）", userId);
+        // 清除该用户的所有本地缓存
+        String prefix = userId + "_";
+        userServerCache.iterator().forEachRemaining(entry -> {
+            if (entry.startsWith(prefix)) {
+                userServerCache.remove(entry);
+            }
+        });
     }
 
     /**
@@ -101,152 +134,17 @@ public class ClientApiManager {
      * @param serverName 服务名称
      */
     public static void remove(String userId, String serverName) {
-        Map<String, DubboApi> innerMap = clientApiMap.get(userId);
-        if (innerMap != null) {
-            log.info("删除用户API缓存 userId:{} servername:{}", userId, serverName);
-            innerMap.remove(serverName);
-        }
-    }
-
-    /**
-     * 判断指定用户是否存在指定服务的映射关系
-     *
-     * @param userId     用户ID
-     * @param serverName 服务名称
-     * @return 是否存在映射关系
-     */
-    public static boolean containsKey(String userId, String serverName) {
-        Map<String, DubboApi> innerMap = clientApiMap.get(userId);
-        if (innerMap != null) {
-            return innerMap.containsKey(serverName);
-        }
-        return false;
+        log.info("用户 {} 的服务 {} 缓存移除请求被忽略（使用共享ReferenceConfig实例）", userId, serverName);
+        // 但需要清理用户服务映射缓存
+        String cacheKey = userId + "_" + serverName;
+        userServerCache.remove(cacheKey);
     }
 
     /**
      * 清空整个缓存
      */
     public static void clear() {
-        clientApiMap.clear();
-    }
-
-
-    /**
-     * 创建客户端API实例
-     * @param userId 用户ID
-     * @param serverName 服务名称
-     */
-    public static void createClientApi(String userId, String serverName) {
-        try {
-            StringRedisTemplate redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
-            String redisKey = RedisKeyUtil.USER_SERVER_KEY + serverName;
-
-            // 从Hash中获取指定serverName对应的ipAndPort
-            String ipAndPort = (String) redisTemplate.opsForHash().get(redisKey, userId);
-
-            // 生成缓存key（仅基于serverName和ipAndPort）
-            String cacheKey = generateCacheKey(serverName, ipAndPort);
-
-            // 先尝试无锁获取引用
-            ReferenceConfig<DubboApi> reference = referenceCache.get(cacheKey);
-            if (reference == null) {
-                // 获取针对该cacheKey的锁
-                Lock lock = locks.computeIfAbsent(cacheKey, k -> new ReentrantLock());
-
-                lock.lock();
-                try {
-                    reference = referenceCache.get(cacheKey);
-                    if (reference == null) {
-                        reference = new ReferenceConfig<>();
-                        reference.setInterface(DubboApi.class);
-                        // 适当增加超时时间
-                        reference.setTimeout(3000);
-                        // 重试次数
-                        reference.setRetries(1);
-                        reference.setScope("remote");
-                        reference.setSticky(true);
-                        // 轮询负载均衡
-                        reference.setLoadbalance("roundrobin");
-                        reference.setGroup(serverName);
-                        if (StringUtils.hasLength(ipAndPort)) {
-                            // 直接连接到指定的IP和端口
-                            reference.setUrl("dubbo://" + ipAndPort + "/" + DubboApi.class.getName());
-                            log.info("绑定到服务对应的实例 {} {} {}", userId, serverName, ipAndPort);
-                        } else {
-                            log.info("随机选择一个实例 {} {}", userId, serverName);
-                        }
-
-                        // 将新创建的ReferenceConfig放入缓存
-                        referenceCache.put(cacheKey, reference);
-                    }
-                } finally {
-                    lock.unlock();
-                }
-            }
-
-            // 更新最后使用时间
-            referenceLastUsedTime.put(cacheKey, System.currentTimeMillis());
-
-            // 为每个客户端创建独立的DubboApi实例（基于共享的ReferenceConfig配置）
-            DubboApi clientSpecificApi = reference.get();
-            log.info("创建 {} {} {} {}", userId, serverName, ipAndPort, clientSpecificApi);
-            put(userId, serverName, clientSpecificApi);
-        } catch (Exception e) {
-            log.error("Failed to create {} reference for client: {}", serverName, userId, e);
-        }
-    }
-
-    /**
-     * 确保客户端API实例已创建
-     * @param userId 玩家id
-     * @param serverName 服务名称
-     */
-    public static void ensureClientApi(String userId, String serverName) {
-        if (!containsKey(userId, serverName)) {
-            createClientApi(userId, serverName);
-        }
-    }
-
-    /**
-     * 处理消息并转发给对应服务
-     * @param userId 玩家id
-     * @param serverName 服务名称
-     */
-    public static DubboApi fetchClientApi(String userId, String serverName) {
-        try {
-            // 确保客户端API已创建
-            ensureClientApi(userId, serverName);
-
-            // 使用已分配的实例处理请求
-            return fetchDubboApi(userId, serverName);
-
-        } catch (Exception e) {
-            log.error("Error processing message for client: {}", userId, e);
-        }
-        return null;
-    }
-
-    public static void clientAndServiceToRedis(String userId, String serverName, String ipAndPort) {
-        String redisKey = RedisKeyUtil.USER_SERVER_KEY + serverName;
-        SpringUtil.getBean(StringRedisTemplate.class).opsForHash().put(redisKey, userId, ipAndPort);
-        log.info("玩家与服务的映射关系写入redis {} {}: {}", userId, serverName, ipAndPort);
-    }
-
-    /**
-     * 生成ReferenceConfig缓存key
-     * @param serverName 服务名称
-     * @param ipAndPort IP和端口
-     * @return 缓存key
-     */
-    private static String generateCacheKey(String serverName, String ipAndPort) {
-        return serverName + "_" + (ipAndPort != null ? ipAndPort : "random");
-    }
-
-    /**
-     * 清理ReferenceConfig缓存（通常在应用关闭时调用）
-     */
-    public static void clearAllReferenceCache() {
-        // 先销毁所有ReferenceConfig
+        // 销毁所有ReferenceConfig
         for (ReferenceConfig<DubboApi> reference : referenceCache.values()) {
             try {
                 reference.destroy();
@@ -256,107 +154,135 @@ public class ClientApiManager {
         }
 
         referenceCache.clear();
-        referenceLastUsedTime.clear();
+        userServerCache.clear();
         locks.clear();
-        log.info("Cleared all ReferenceConfigs");
+        log.info("Cleared all shared ReferenceConfigs and user server mapping cache");
     }
 
     /**
-     * 清理过期的ReferenceConfig引用
+     * 处理消息并转发给对应服务
+     * @param userId 玩家id
+     * @param serverName 服务名称
      */
-    private static void cleanExpiredReferences() {
+    public static DubboApi fetchClientApi(String userId, String serverName) {
         try {
-            long currentTime = System.currentTimeMillis();
-            long expireTime = 30 * 60 * 1000; // 30分钟
+            // 直接获取共享的API实例
+            DubboApi api = fetchDubboApi(userId, serverName);
 
-            referenceLastUsedTime.entrySet().removeIf(entry -> {
-                if (currentTime - entry.getValue() > expireTime) {
-                    String cacheKey = entry.getKey();
-                    Lock lock = locks.get(cacheKey);
-                    if (lock != null) {
-                        lock.lock();
-                        try {
-                            ReferenceConfig<DubboApi> reference = referenceCache.get(cacheKey);
-                            if (reference != null) {
-                                try {
-                                    reference.destroy(); // 销毁ReferenceConfig
-                                } catch (Exception e) {
-                                    log.warn("Failed to destroy ReferenceConfig for key: " + cacheKey, e);
-                                }
-                            }
-                            referenceCache.remove(cacheKey);
-                            locks.remove(cacheKey);
-                            log.info("Cleaned expired ReferenceConfig: " + cacheKey);
-                            return true;
-                        } finally {
-                            lock.unlock();
-                        }
-                    }
-                }
-                return false;
-            });
+            // 检查获取到的API是否为空
+            if (api == null) {
+                log.warn("Failed to fetch shared DubboApi for userId: {}, serverName: {}", userId, serverName);
+            }
+            return api;
         } catch (Exception e) {
-            log.error("Error cleaning expired references", e);
+            log.error("Error processing message for client: {}", userId, e);
         }
+        return null;
+    }
+
+    public static void clientAndServiceToRedis(String userId, String serverName, String ipAndPort) {
+        String redisKey = RedisKeyUtil.fetchUserServerKey(serverName);
+        SpringUtil.getBean(StringRedisTemplate.class).opsForHash().put(redisKey, userId, ipAndPort);
+
+        // 同时更新本地缓存
+        String cacheKey = userId + "_" + serverName;
+        userServerCache.put(cacheKey, ipAndPort);
+
+        log.info("玩家与服务的映射关系写入redis {} {}: {}", userId, serverName, ipAndPort);
     }
 
     /**
-     * 当服务实例下线时，清理对应的Reference缓存
+     * 生成Reference缓存key
+     * @param serverName 服务名称
+     * @param ipAndPort IP和端口
+     * @return 缓存key
+     */
+    private static String generateCacheKey(String serverName, String ipAndPort) {
+        return serverName + "_" + (ipAndPort != null ? ipAndPort : "random");
+    }
+
+    /**
+     * 当服务实例下线时，清理对应的缓存
      * @param serverName 服务名称
      * @param ipAndPort IP和端口
      */
     public static void clearReferenceCacheByInstance(String serverName, String ipAndPort) {
-        String cacheKey = generateCacheKey(serverName, ipAndPort);
-        Lock lock = locks.get(cacheKey);
+        String referenceCacheKey = generateCacheKey(serverName, ipAndPort);
+        Lock lock = locks.get(referenceCacheKey);
 
         if (lock != null) {
             lock.lock();
             try {
-                ReferenceConfig<DubboApi> reference = referenceCache.get(cacheKey);
+                ReferenceConfig<DubboApi> reference = referenceCache.get(referenceCacheKey);
                 if (reference != null) {
                     try {
                         reference.destroy(); // 销毁ReferenceConfig
-                        log.info("Destroyed ReferenceConfig for key: " + cacheKey);
+                        log.info("Destroyed ReferenceConfig for key: " + referenceCacheKey);
                     } catch (Exception e) {
-                        log.warn("Failed to destroy ReferenceConfig for key: " + cacheKey, e);
+                        log.warn("Failed to destroy ReferenceConfig for key: " + referenceCacheKey, e);
                     }
                 }
-                referenceCache.remove(cacheKey);
-                referenceLastUsedTime.remove(cacheKey);
-                locks.remove(cacheKey);
-                log.info("Cleaned ReferenceConfig by instance: serverName={}, ipAndPort={}", serverName, ipAndPort);
+                referenceCache.remove(referenceCacheKey);
+                locks.remove(referenceCacheKey);
+                log.info("Cleaned cache by instance: serverName={}, ipAndPort={}", serverName, ipAndPort);
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    /**
+     * 释放所有dubbo api实例
+     * 目的是当服务shutdown的时候,释放当前服务Reference的实例,并且清除redis中玩家对应的ip和port
+     */
+    public static void clearAllReferenceCache() {
+        String serverName = CommonUtil.fetchLocalServerName();
+        String ipAndPort = CommonUtil.fetchLocalServerId();
+        log.info("开始清理服务 {} {} 的Dubbo引用和Redis中的玩家映射", serverName, ipAndPort);
+
+        // 1. 销毁指定服务实例的ReferenceConfig实例
+        String referenceCacheKey = generateCacheKey(serverName, ipAndPort);
+        Lock lock = locks.get(referenceCacheKey);
+
+        int destroyedCount = 0;
+        if (lock != null) {
+            lock.lock();
+            try {
+                ReferenceConfig<DubboApi> reference = referenceCache.get(referenceCacheKey);
+                if (reference != null) {
+                    try {
+                        reference.destroy();
+                        destroyedCount++;
+                        log.info("已销毁服务 {} 的Dubbo引用", referenceCacheKey);
+                    } catch (Exception e) {
+                        log.warn("Failed to destroy ReferenceConfig for key: " + referenceCacheKey, e);
+                    }
+                }
+                referenceCache.remove(referenceCacheKey);
+                locks.remove(referenceCacheKey);
             } finally {
                 lock.unlock();
             }
         }
 
-        // 同时清理客户端缓存
-        clearClientCacheByInstance(serverName, ipAndPort);
-    }
+        // 2. 清理Redis中当前服务实例相关的玩家映射
+        StringRedisTemplate redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
+        String redisKey = RedisKeyUtil.fetchUserServerKey(serverName);
 
-    /**
-     * 当服务实例下线时，清理客户端缓存
-     * @param serverName 服务名称
-     * @param ipAndPort IP和端口
-     */
-    private static void clearClientCacheByInstance(String serverName, String ipAndPort) {
-        // 清理Redis中存储的用户与服务实例的映射关系
         try {
-            StringRedisTemplate redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
-            String redisKey = RedisKeyUtil.USER_SERVER_KEY + serverName;
-
-            // 获取所有映射到该服务实例的用户
+            // 获取所有映射到当前服务实例的用户
             Map<Object, Object> entries = redisTemplate.opsForHash().entries(redisKey);
             for (Map.Entry<Object, Object> entry : entries.entrySet()) {
                 if (ipAndPort.equals(entry.getValue())) {
                     // 删除映射关系
                     redisTemplate.opsForHash().delete(redisKey, entry.getKey());
-                    log.info("Removed redis mapping for user: {} to server: {}", entry.getKey(), ipAndPort);
+                    log.info("已从Redis中移除用户 {} 到服务 {} 的映射", entry.getKey(), ipAndPort);
                 }
             }
         } catch (Exception e) {
-            log.error("Error clearing redis mapping for server: {} ipAndPort: {}", serverName, ipAndPort, e);
+            log.warn("清理Redis中服务 {} 的映射时出错", serverName, e);
         }
-    }
 
+        log.info("服务 {} {} 清理完成，共销毁 {} 个Dubbo引用", serverName, ipAndPort, destroyedCount);
+    }
 }

@@ -37,7 +37,7 @@ public class NacosServiceListener extends Subscriber<InstancesChangeEvent> {
     private NamingService dubboNamingService;
 
     // 定时任务执行器
-//    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     @PostConstruct
     public void init() {
@@ -185,23 +185,23 @@ public class NacosServiceListener extends Subscriber<InstancesChangeEvent> {
         // 取消注册监听器
         NotifyCenter.deregisterSubscriber(this);
         // 关闭定时任务
-//        scheduler.shutdown();
+        scheduler.shutdown();
         log.info("注销Nacos服务实例变更监听器");
     }
 
     /**
      * 启动定时服务发现任务
      */
-//    private void startPeriodicServiceDiscovery() {
-//        scheduler.scheduleWithFixedDelay(() -> {
-//            try {
-//                discoverAndSubscribeNewServices(namingService, "Spring Cloud");
-//                discoverAndSubscribeNewServices(dubboNamingService, "Dubbo");
-//            } catch (Exception e) {
-//                log.error("定时发现新服务时发生错误", e);
-//            }
-//        }, 30, 30, TimeUnit.SECONDS); // 每30秒检查一次新服务
-//    }
+    private void startPeriodicServiceDiscovery() {
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                discoverAndSubscribeNewServices(namingService, "Spring Cloud");
+                discoverAndSubscribeNewServices(dubboNamingService, "Dubbo");
+            } catch (Exception e) {
+                log.error("定时发现新服务时发生错误", e);
+            }
+        }, 30, 30, TimeUnit.SECONDS); // 每30秒检查一次新服务
+    }
 
     /**
      * 发现并订阅新服务
