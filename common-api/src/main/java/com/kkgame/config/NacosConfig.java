@@ -17,6 +17,9 @@ public class NacosConfig {
     @Value("${spring.cloud.nacos.discovery.namespace:}")
     private String namespace;
 
+    @Value("${dubbo.registry.parameters.namespace:}")
+    private String dubboNameSpace;
+
     @Bean
     public NamingService namingService() throws Exception {
         Properties properties = new Properties();
@@ -32,7 +35,9 @@ public class NacosConfig {
     public NamingService dubboNamingService() throws Exception {
         Properties properties = new Properties();
         properties.put("serverAddr", serverAddr);
-        properties.put("namespace", "");
+        if (dubboNameSpace != null && !dubboNameSpace.isEmpty()) {
+            properties.put("namespace", dubboNameSpace);
+        }
         return NacosFactory.createNamingService(properties);
     }
 }

@@ -8,6 +8,7 @@ import com.alibaba.nacos.client.naming.event.InstancesChangeEvent;
 import com.alibaba.nacos.common.notify.Event;
 import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.common.notify.listener.Subscriber;
+import com.kkgame.manager.ClientApiManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -172,7 +173,7 @@ public class NacosServiceListener extends Subscriber<InstancesChangeEvent> {
      */
     private void clearInstanceCache(String serviceName, String ipPort) {
         // 调用ClientApiUtil清理对应实例的缓存
-        com.kkgame.util.ClientApiManager.clearReferenceCacheByInstance(serviceName, ipPort);
+        ClientApiManager.clearReferenceCacheByInstance(serviceName, ipPort);
     }
 
     @Override

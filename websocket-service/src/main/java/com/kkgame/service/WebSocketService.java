@@ -8,7 +8,7 @@ import com.kkgame.manager.SessionManager;
 import com.kkgame.protobuf.ConnectionNotification;
 import com.kkgame.protobuf.MessageData;
 import com.kkgame.protobuf.ServerName;
-import com.kkgame.util.ClientApiManager;
+import com.kkgame.manager.ClientApiManager;
 import com.kkgame.util.CommonUtil;
 import com.kkgame.util.DubboServiceUtil;
 import com.kkgame.util.MessageProcessor;

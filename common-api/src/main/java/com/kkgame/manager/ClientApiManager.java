@@ -1,10 +1,13 @@
-package com.kkgame.util;
+package com.kkgame.manager;
 
 import cn.hutool.cache.CacheUtil;
 import cn.hutool.cache.impl.TimedCache;
 import cn.hutool.extra.spring.SpringUtil;
 import com.kkgame.api.DubboApi;
 import com.kkgame.constans.RedisKeyUtil;
+import com.kkgame.enums.ServerNameEnum;
+import com.kkgame.util.CommonUtil;
+import com.kkgame.util.DubboServiceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.ReferenceConfig;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -40,30 +43,18 @@ public class ClientApiManager {
 
     /**
      * 获取客户端对应的服务实例
+     * 同一个服务的用户共享同一个ReferenceConfig实例
      *
      * @param userId     用户ID
      * @param serverName 服务名称
      * @return Dubbo服务实例
      */
     public static DubboApi fetchDubboApi(String userId, String serverName) {
-        // 所有用户共享同一个ReferenceConfig实例
-        // 先从本地缓存获取ipAndPort
-        String cacheKey = userId + "_" + serverName;
-        String ipAndPort = userServerCache.get(cacheKey);
 
-        // 如果本地缓存没有，则从Redis获取
-        if (ipAndPort == null) {
-            StringRedisTemplate redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
-            String redisKey = RedisKeyUtil.fetchUserServerKey(serverName);
-
-            // 从Redis中获取指定serverName对应的ipAndPort
-            ipAndPort = (String) redisTemplate.opsForHash().get(redisKey, userId);
-
-            // 放入本地缓存
-            if (ipAndPort != null) {
-                userServerCache.put(cacheKey, ipAndPort);
-            }
-        }
+        // 获取目标服务的ip和端口
+        // 如果是无状态服务，则随机找一个dubb服务实例
+        // 如果是有状态服务，则从本地缓存获取ipAndPort
+        String ipAndPort = fetchIpAndPort(userId, serverName);
 
         // 生成Reference缓存key（基于serverName和ipAndPort）
         String referenceCacheKey = generateCacheKey(serverName, ipAndPort);
@@ -85,15 +76,17 @@ public class ClientApiManager {
                     // 重试次数
                     reference.setRetries(1);
                     reference.setScope("remote");
-                    reference.setSticky(true);
                     // 轮询负载均衡
                     reference.setLoadbalance("roundrobin");
                     reference.setGroup(serverName);
                     if (StringUtils.hasLength(ipAndPort)) {
                         // 直接连接到指定的IP和端口
+                        reference.setSticky(true);
                         reference.setUrl("dubbo://" + ipAndPort + "/" + DubboApi.class.getName());
                         log.info("绑定到服务对应的实例 {} {} {}", userId, serverName, ipAndPort);
                     } else {
+                        // 无状态服务关闭粘性连接
+                        reference.setSticky(false);
                         log.info("随机选择一个实例 {} {}", userId, serverName);
                     }
 
@@ -108,6 +101,28 @@ public class ClientApiManager {
 
         // 每次都通过ReferenceConfig获取新的DubboApi代理实例
         return reference.get();
+    }
+
+    private static String fetchIpAndPort(String userId, String serverName) {
+        String cacheKey = userId + "_" + serverName;
+        String ipAndPort = null;
+        if (ServerNameEnum.isStateful(serverName) ) {
+            ipAndPort = userServerCache.get(cacheKey);
+            // 如果本地缓存没有，则从Redis获取
+            if (ipAndPort == null) {
+                StringRedisTemplate redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
+                String redisKey = RedisKeyUtil.fetchUserServerKey(serverName);
+
+                // 从Redis中获取指定serverName对应的ipAndPort
+                ipAndPort = (String) redisTemplate.opsForHash().get(redisKey, userId);
+
+                // 放入本地缓存
+                if (ipAndPort != null) {
+                    userServerCache.put(cacheKey, ipAndPort);
+                }
+            }
+        }
+        return ipAndPort;
     }
 
     /**
@@ -237,7 +252,7 @@ public class ClientApiManager {
      */
     public static void clearAllReferenceCache() {
         String serverName = CommonUtil.fetchLocalServerName();
-        String ipAndPort = CommonUtil.fetchLocalServerId();
+        String ipAndPort = DubboServiceUtil.getLocalServiceInstanceInfo();
         log.info("开始清理服务 {} {} 的Dubbo引用和Redis中的玩家映射", serverName, ipAndPort);
 
         // 1. 销毁指定服务实例的ReferenceConfig实例

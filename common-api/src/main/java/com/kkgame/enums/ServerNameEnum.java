@@ -7,18 +7,21 @@ import lombok.Getter;
 @Getter
 public enum ServerNameEnum {
 
-    NONE("NONE", 0),
-    WEBSOCKET_SERVICE("websocket-service", 1),
-    A_SERVICE("a-service", 2),
-    MATCH_SERVICE("match-service", 3),
+    NONE("NONE", 0, false),
+    WEBSOCKET_SERVICE("websocket-service", 1,true),
+    A_SERVICE("a-service", 2,true),
+    MATCH_SERVICE("match-service", 3, false),
     ;
 
     private final String serverName;
     private final Integer code;
+    // 是否有状态
+    private final Boolean stateful;
 
-    ServerNameEnum(String serverName, Integer code) {
+    ServerNameEnum(String serverName, Integer code,  Boolean stateful) {
         this.serverName = serverName;
         this.code = code;
+        this.stateful = stateful;
     }
 
     // 获取服务名
@@ -48,6 +51,15 @@ public enum ServerNameEnum {
             }
         }
         return ServerName.NONE;
+    }
+
+    public static boolean isStateful(ServerNameEnum serverName) {
+        return fetchServerNameEnum(serverName.getServerName()).stateful;
+    }
+
+    public static boolean isStateful(String serverName) {
+        boolean stateful1 = isStateful(fetchServerNameEnum(serverName));
+        return stateful1;
     }
 
 }

@@ -1,9 +1,7 @@
 package com.kkgame.config;
 
-import com.kkgame.util.ClientApiManager;
+import com.kkgame.manager.ClientApiManager;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.stereotype.Component;

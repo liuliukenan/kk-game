@@ -3,7 +3,7 @@ package com.kkgame.api;
 import com.kkgame.enums.ServerNameEnum;
 import com.kkgame.protobuf.MessageData;
 import com.kkgame.service.WebSocketService;
-import com.kkgame.util.ClientApiManager;
+import com.kkgame.manager.ClientApiManager;
 import org.apache.dubbo.config.annotation.DubboService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

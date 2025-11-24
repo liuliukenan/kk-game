@@ -3,6 +3,7 @@ package com.kkgame.util;
 import cn.hutool.core.thread.NamedThreadFactory;
 import com.google.protobuf.util.JsonFormat;
 import com.kkgame.api.DubboApi;
+import com.kkgame.manager.ClientApiManager;
 import com.kkgame.protobuf.MessageData;
 import lombok.extern.slf4j.Slf4j;
 

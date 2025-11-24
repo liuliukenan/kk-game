@@ -2,6 +2,7 @@ package com.kkgame.util;
 
 import com.kkgame.api.DubboApi;
 import com.kkgame.enums.ServerNameEnum;
+import com.kkgame.manager.ClientApiManager;
 import com.kkgame.protobuf.MessageData;
 import lombok.extern.slf4j.Slf4j;
 

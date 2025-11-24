@@ -33,7 +33,7 @@ public class ProtoBase64Util {
         // match-service: EAMaBggBEgIIAg==
         // a-service: EAIaCAgBEgQIARAB
         MatchSubMessageData subMessageData = MatchSubMessageData.newBuilder()
-                .setMessageCode(MatchMessageCode.CANCEL_MATCH)
+                .setMessageCode(MatchMessageCode.MATCH)
                 .setMessage(
                         MatchRequest.newBuilder().setServerName(ServerName.A_SERVICE).build().toByteString())
                 .build();
