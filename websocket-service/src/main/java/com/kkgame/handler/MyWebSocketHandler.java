@@ -26,7 +26,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
-        log.debug("Received binary messageSession ID: {}, Close Status: {}",
+        log.debug("Received binary messageSession ID: {}, message PayloadLength: {}",
                 session.getId(), message.getPayloadLength());
         webSocketService.handleBinaryMessage(session, message);
     }
