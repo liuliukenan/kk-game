@@ -95,6 +95,8 @@ public class WebSocketService {
         if (userId != null) {
             // 关闭会话
             removeSession(userId);
+            // 移除用户缓存
+            ClientApiManager.removeUserCache(userId);
             // 清理Redis中的用户与websocket实例映射关系
             clearUserWebSocketMapping(userId);
             log.info("WebSocket connection closed: {}，用户ID: {}，服务器: {} status:{}", session.getId(), userId, CommonUtil.fetchLocalServerId(), status);
@@ -155,6 +157,9 @@ public class WebSocketService {
             String redisKey = RedisKeyUtil.fetchUserServerKey(ServerNameEnum.WEBSOCKET_SERVICE.getServerName());
             stringRedisTemplate.opsForHash().delete(redisKey, userId);
             log.info("Cleared user to websocket instance mapping for user: {}", userId);
+        } catch (IllegalStateException e) {
+            // 在应用关闭过程中Redis连接可能已被销毁，这种情况下记录debug日志即可
+            log.debug("Redis connection was destroyed, skipping user mapping cleanup for user: {}", userId);
         } catch (Exception e) {
             log.error("Failed to clear user to websocket instance mapping for user: {}", userId, e);
         }
@@ -206,7 +211,4 @@ public class WebSocketService {
         return ServerNameEnum.NONE.getServerName().equals(serverName);
     }
 
-    public void removeClientApi(String userId) {
-        ClientApiManager.remove(userId);
-    }
 }

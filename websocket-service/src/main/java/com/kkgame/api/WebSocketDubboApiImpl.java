@@ -24,7 +24,7 @@ public class WebSocketDubboApiImpl implements DubboApi {
     @Override
     public void clearDubboApiCache(byte[] bytes) throws Exception {
         MessageData messageData = MessageData.parseFrom(bytes);
-        ClientApiManager.remove(messageData.getUserId(), ServerNameEnum.getServerNameString(messageData.getServerName()));
+        ClientApiManager.removeUserCache(messageData.getUserId(), ServerNameEnum.getServerNameString(messageData.getServerName()));
     }
 
 }

@@ -14,6 +14,9 @@ public class RedisConfig {
     @Autowired
     private ConnectionCloseListener connectionCloseListener;
 
+    /**
+     * redis监听器 监听连接关闭事件
+     */
     @Bean
     public RedisMessageListenerContainer redisMessageListenerContainer(RedisConnectionFactory connectionFactory) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();

@@ -48,7 +48,7 @@ public class DubboServiceUtil {
         try {
             NamingService bean = SpringUtil.getBean("dubboNamingService");
 
-            List<Instance> instances = bean.getAllInstances(build(SpringUtil.getProperty("spring.application.name")));
+            List<Instance> instances = bean.getAllInstances(build(CommonUtil.fetchLocalServerName()));
 
             String localIp = java.net.InetAddress.getLocalHost().getHostAddress();
             if (!instances.isEmpty()) {
