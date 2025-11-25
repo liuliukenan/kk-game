@@ -1,33 +1,26 @@
 package com.kkgame.api;
 
-import cn.hutool.extra.spring.SpringUtil;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
-import com.kkgame.enums.ServerNameEnum;
-import com.kkgame.manager.ClientApiManager;
-import com.kkgame.protobuf.*;
-import com.kkgame.util.*;
+import com.kkgame.handler.MatchMessageHandler;
+import com.kkgame.protobuf.MatchMessageCode;
+import com.kkgame.protobuf.MatchSubMessageData;
+import com.kkgame.protobuf.MessageData;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboService;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
+import javax.annotation.Resource;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @DubboService(group = "match-service")
 @Service
 @Slf4j
 public class MatchDubboApiImpl implements DubboApi {
 
-    // 存储等待匹配的玩家列表
-    private final List<String> waitingPlayers = new CopyOnWriteArrayList<>();
-
-    // 房间ID生成器
-    private final AtomicInteger roomIdGenerator = new AtomicInteger(1);
+    @Resource
+    Map<MatchMessageCode, MatchMessageHandler> messageHandlerMap;
 
     @Override
     public void processMessageProto(byte[] bytes) throws Exception {
@@ -38,136 +31,17 @@ public class MatchDubboApiImpl implements DubboApi {
         log.info("收到消息 clientId: {} subMessageData: {}", clientId, JsonFormat.printer().print(subMessageData));
 
         MatchMessageCode messageCode = subMessageData.getMessageCode();
-        switch (messageCode) {
-            case MATCH:
-                addToMatchingQueue(messageData.getUserId(), subMessageData);
-                break;
-            case CANCEL_MATCH:
-                log.warn("Player {} cancelled match", clientId);
-                break;
-            default:
-                break;
-        }
-    }
 
-    /**
-     * 将玩家添加到匹配队列
-     *
-     * @param clientId 客户端ID
-     */
-    private void addToMatchingQueue(String clientId, MatchSubMessageData subMessageData) throws Exception {
-        if (waitingPlayers.contains(clientId)) {
-            return;
-        }
-        ByteString message = subMessageData.getMessage();
-        MatchRequest matchRequest = MatchRequest.parseFrom(message);
-        log.info("收到消息 clientId: {} matchRequest: {}", clientId, JsonFormat.printer().print(matchRequest));
-        waitingPlayers.add(clientId);
-        log.info(" 加入匹配队列 {} {} 当前人数:{}",
-                clientId, matchRequest.getServerName(), waitingPlayers.size());
-        // 检查是否可以创建房间（每2个玩家一组）
-        if (waitingPlayers.size() >= 2) {
-            matchPlayers(matchRequest.getServerName());
-        }
-    }
-
-    /**
-     * 匹配玩家并创建房间
-     */
-    private void matchPlayers(ServerName serverName) {
-        // 创建房间
-        String roomId = "room-" + roomIdGenerator.getAndIncrement();
-        log.info("Creating room: {}", roomId);
-
-        // 获取两个玩家
-        String player1 = waitingPlayers.removeFirst();
-        String player2 = waitingPlayers.removeFirst();
-
-        log.info("Matching players: {} and {} into room {}", player1, player2, roomId);
-
-        try {
-            // 获取一个可用的a-service实例的ip和端口
-            String serverNameString = ServerNameEnum.getServerNameString(serverName);
-            String ipAndPort = DubboServiceUtil.getServiceInstanceInfo(serverNameString);
-            log.info("Selected a-service instance: {}", ipAndPort);
-
-            // 将匹配信息写入Redis
-            saveMatchInfoToRedis(roomId, player1, player2, ipAndPort);
-
-            // 清除玩家原来的缓存
-            WsMessageUtil.clearPlayerCache(player1, serverNameString);
-            WsMessageUtil.clearPlayerCache(player2, serverNameString);
-
-            // redis存储玩家的服务信息
-            ClientApiManager.clientAndServiceToRedis(player1, serverNameString, ipAndPort);
-            ClientApiManager.clientAndServiceToRedis(player2, serverNameString, ipAndPort);
-
-            // 通知玩家匹配成功
-            notifyPlayersRoomCreated(roomId, player1, player2, serverName);
-
-        } catch (Exception e) {
-            log.error("Failed to match players", e);
-            // 如果创建失败，将玩家重新加入队列
-            waitingPlayers.addFirst(player1);
-            waitingPlayers.addFirst(player2);
-        }
-    }
-
-    /**
-     * 通知玩家房间已创建
-     *
-     * @param roomId  房间ID
-     * @param player1 玩家1
-     * @param player2 玩家2
-     */
-    private void notifyPlayersRoomCreated(String roomId, String player1, String player2, ServerName serverName) {
-        try {
-            MatchResponse response1 = MatchResponse.newBuilder()
-                    .setStatusMsg(ProtobufUtil.buildSuccessStatusMsg())
-                    .setServerName(serverName)
-                    .setRoomId(roomId)
+        // 使用命令模式处理消息
+        MatchMessageHandler handler = messageHandlerMap.get(messageCode);
+        if (handler != null) {
+            ByteString messageBytes = subMessageData.getMessage();
+            Message message = handler.getDefaultMessageInstance().toBuilder()
+                    .mergeFrom(messageBytes)
                     .build();
-
-            // 通知玩家1
-            MessageData messageData1 = MessageBuildUtil.buildMessageData(player1, MatchMessageCode.MATCH, response1.toByteArray());
-            WsMessageUtil.notifyPlayer(messageData1);
-
-            // 通知玩家2
-            MessageData messageData2 = MessageBuildUtil.buildMessageData(player2, MatchMessageCode.MATCH, response1.toByteArray());
-            WsMessageUtil.notifyPlayer(messageData2);
-
-            log.info("Notified players {} and {} about room {} creation", player1, player2, roomId);
-        } catch (Exception e) {
-            log.error("Failed to notify players about room creation", e);
-        }
-    }
-
-
-    /**
-     * 将匹配信息保存到Redis
-     *
-     * @param roomId           房间ID
-     * @param player1          玩家1
-     * @param player2          玩家2
-     * @param aServiceInstance a-service实例信息
-     */
-    private void saveMatchInfoToRedis(String roomId, String player1, String player2, String aServiceInstance) {
-        try {
-            // 创建匹配信息的HashMap
-            Map<String, String> matchInfo = new HashMap<>();
-            matchInfo.put("roomId", roomId);
-            matchInfo.put("player1", player1);
-            matchInfo.put("player2", player2);
-            matchInfo.put("aServiceInstance", aServiceInstance);
-            matchInfo.put("timestamp", String.valueOf(System.currentTimeMillis()));
-
-            // 将匹配信息存储到Redis中
-            String key = "match:room:" + roomId;
-            SpringUtil.getBean(StringRedisTemplate.class).opsForHash().putAll(key, matchInfo);
-
-            log.info("Match info saved to Redis for room: {}", roomId);
-        } catch (Exception e) {
-            log.error("Failed to save match info to Redis for room: " + roomId, e);
+            handler.handleMessage(clientId, message);
+        } else {
+            log.warn("未找到消息处理器 clientId: {} messageCode: {}", clientId, messageCode);
         }
     }
 }

@@ -38,7 +38,15 @@ public class ProtoBase64Util {
                         MatchRequest.newBuilder().setServerName(ServerName.A_SERVICE).build().toByteString())
                 .build();
         String base641 = toBase64(subMessageData.toByteArray(), ServerName.MATCH_SERVICE);
-        System.out.println("匹配服 发送用的 Base64: " + base641);
+        System.out.println("匹配 Base64: " + base641);
+
+        MatchSubMessageData matchSubMessageData = MatchSubMessageData.newBuilder()
+                .setMessageCode(MatchMessageCode.CANCEL_MATCH)
+                .setMessage(
+                        MatchRequest.newBuilder().setServerName(ServerName.A_SERVICE).build().toByteString())
+                .build();
+        String matchBase64 = toBase64(matchSubMessageData.toByteArray(), ServerName.MATCH_SERVICE);
+        System.out.println("取消匹配 Base64: " + matchBase64);
 
 
         ASubMessageData aSubMessageData = ASubMessageData.newBuilder()
