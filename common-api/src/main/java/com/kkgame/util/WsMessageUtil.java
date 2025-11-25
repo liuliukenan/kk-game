@@ -10,11 +10,18 @@ import lombok.extern.slf4j.Slf4j;
 public class WsMessageUtil {
 
     /**
-     * 通知ws服务
+     * 异步通知ws服务
      * @param messageData 消息数据
      */
     public static void notifyPlayer(MessageData messageData) {
         MessageProcessor.sendMessage(messageData.getUserId(), ServerNameEnum.WEBSOCKET_SERVICE.getServerName(), messageData);
+    }
+
+    /**
+     * 同步通知ws服务
+     */
+    public static void notifyPlayerSync(MessageData messageData) {
+        MessageProcessor.sendMessageSync(messageData.getUserId(), ServerNameEnum.WEBSOCKET_SERVICE.getServerName(), messageData);
     }
 
     /**

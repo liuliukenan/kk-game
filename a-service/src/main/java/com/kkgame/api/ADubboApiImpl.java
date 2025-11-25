@@ -18,26 +18,29 @@ public class ADubboApiImpl implements DubboApi {
     private static final Logger log = LoggerFactory.getLogger(ADubboApiImpl.class);
 
     @Override
-    public void processMessageProto(byte[] bytes) throws Exception {
-        MessageData messageData = MessageData.parseFrom(bytes);
-        ByteString message = messageData.getMessage();
-        String userId = messageData.getUserId();
-        ASubMessageData subMessageData = ASubMessageData.parseFrom(message);
-        SitDownRequest sitDownRequest = SitDownRequest.parseFrom(subMessageData.getMessage());
-        log.info("收到消息 userId: {} messageData: {}", userId, JsonFormat.printer().print(messageData));
-        log.info("收到消息 userId: {} subMessageData: {}", userId, JsonFormat.printer().print(subMessageData));
-        log.info("收到消息 userId: {} sitDownRequest: {}", userId, JsonFormat.printer().print(sitDownRequest));
+    public void processMessageProto(byte[] bytes) {
+        try {
+            MessageData messageData = MessageData.parseFrom(bytes);
+            ByteString message = messageData.getMessage();
+            String userId = messageData.getUserId();
+            ASubMessageData subMessageData = ASubMessageData.parseFrom(message);
+            SitDownRequest sitDownRequest = SitDownRequest.parseFrom(subMessageData.getMessage());
+            log.info("收到消息 userId: {} messageData: {}", userId, JsonFormat.printer().print(messageData));
+            log.info("收到消息 userId: {} subMessageData: {}", userId, JsonFormat.printer().print(subMessageData));
+            log.info("收到消息 userId: {} sitDownRequest: {}", userId, JsonFormat.printer().print(sitDownRequest));
 
 
-        SitDownResponse response = SitDownResponse.newBuilder()
-                .setStatusMsg(ProtobufUtil.buildSuccessStatusMsg())
-                .setGameId(1)
-                .setRoomId(1)
-                .build();
-        MessageData messageData1 = MessageBuildUtil.buildMessageData(userId, AMessageCode.SIT_DOWN, response.toByteArray());
-        log.info("返回消息 userId: {} response: {}", userId, JsonFormat.printer().print(response));
-        WsMessageUtil.notifyPlayer(messageData1);
-
+            SitDownResponse response = SitDownResponse.newBuilder()
+                    .setStatusMsg(ProtobufUtil.buildSuccessStatusMsg())
+                    .setGameId(1)
+                    .setRoomId(1)
+                    .build();
+            MessageData messageData1 = MessageBuildUtil.buildMessageData(userId, AMessageCode.SIT_DOWN, response.toByteArray());
+            log.info("返回消息 userId: {} response: {}", userId, JsonFormat.printer().print(response));
+            WsMessageUtil.notifyPlayer(messageData1);
+        } catch (Exception e) {
+            log.error("处理消息失败 bytes: {}", ByteString.copyFrom(bytes), e);
+        }
     }
 
 }

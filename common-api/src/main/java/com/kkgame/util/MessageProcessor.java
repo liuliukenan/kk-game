@@ -1,7 +1,6 @@
 package com.kkgame.util;
 
 import cn.hutool.core.thread.NamedThreadFactory;
-import com.google.protobuf.util.JsonFormat;
 import com.kkgame.api.DubboApi;
 import com.kkgame.manager.ClientApiManager;
 import com.kkgame.protobuf.MessageData;
@@ -59,6 +58,23 @@ public class MessageProcessor {
     }
 
     /**
+     * 同步发送消息
+     * @param userId 用户ID
+     * @param serverName 服务名称
+     * @param messageData 消息数据
+     */
+    public static void sendMessageSync(String userId, String serverName, MessageData messageData) {
+        DubboApi api = ClientApiManager.fetchClientApi(userId, serverName);
+        if (api != null) {
+            try {
+                api.processMessageProto(messageData.toByteArray());
+            } catch (Exception e) {
+                log.error("处理用户 {} 的消息时发生异常", userId, e);
+            }
+        }
+    }
+
+    /**
      * 创建单线程执行器，并添加监控和重启机制
      * @param threadIndex 线程索引
      * @return ExecutorService执行器
@@ -103,7 +119,8 @@ public class MessageProcessor {
     public void processProtoMessage(String userId, String serverName, MessageData messageData) {
         processMessageInOrder(userId, serverName, api -> {
             try {
-                log.info("转发给{}服务, userId: {}, message: {}", serverName, userId, JsonFormat.printer().print(messageData));
+//                log.info("转发给{}服务, userId: {}, message: {}", serverName, userId, JsonFormat.printer().print(messageData));
+//                log.info("转发给{}服务, userId: {}", serverName, userId);
                 api.processMessageProto(messageData.toByteArray());
             } catch (Exception e) {
                 log.error("处理用户 {} 的消息时发生异常", userId, e);

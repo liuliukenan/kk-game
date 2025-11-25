@@ -1,8 +1,8 @@
 package com.kkgame.handler;
 
-import com.google.protobuf.Message;
-import com.kkgame.protobuf.MatchMessageCode;
-import com.kkgame.protobuf.MatchRequest;
+import com.kkgame.protobuf.*;
+import com.kkgame.util.MessageBuildUtil;
+import com.kkgame.util.WsMessageUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,12 +19,16 @@ public class CancelMatchHandler implements MatchMessageHandler {
     }
 
     @Override
-    public Message getDefaultMessageInstance() {
-        return MatchRequest.getDefaultInstance();
-    }
-
-    @Override
-    public void handleMessage(String userId, Message message) {
-        log.warn("玩家 {} 取消了匹配", userId);
+    public void handleMessage(String userId, MatchSubMessageData message) {
+        log.info("玩家 {} 取消匹配", userId);
+        MessageData res = MessageBuildUtil.buildMessageData(userId, MatchMessageCode.CANCEL_MATCH,
+                MatchResponse.newBuilder()
+                        .setStatusMsg(
+                                StatusMsg.newBuilder().setCode(0).setMsg("取消了匹配").build()
+                        )
+                        .setServerName(ServerName.MATCH_SERVICE)
+                        .setRoomId("1").build().toByteArray());
+        WsMessageUtil.notifyPlayerSync(res);
+        log.info("玩家 {} 取消成功", userId);
     }
 }

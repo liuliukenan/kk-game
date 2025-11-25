@@ -21,6 +21,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 import javax.annotation.Resource;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
@@ -33,6 +34,8 @@ public class WebSocketService {
     // 注入会话管理器
     @Resource
     private SessionManager sessionManager;
+
+    private final AtomicInteger messageCount = new AtomicInteger(0);
 
 
     public void handleConnectionEstablished(WebSocketSession session) {
@@ -69,7 +72,7 @@ public class WebSocketService {
             // 解析 Protocol Buffers 消息
             MessageData messageData = MessageData.parseFrom(bytes);
 
-            log.info("收到客户端发送的消息 {}", JsonFormat.printer().print(messageData));
+//            log.info("收到客户端发送的消息 {}", JsonFormat.printer().print(messageData));
 
             String serverName = getServerNameString(messageData.getServerName());
             if (isNoneServer(serverName)) {
@@ -83,8 +86,13 @@ public class WebSocketService {
 
             log.info("转发给{}服务, userId: {}", serverName, userId);
 
-            // 转发消息
-            MessageProcessor.sendMessage(userId, serverName, newMessageData);
+            // 异步转发消息
+//            MessageProcessor.sendMessage(userId, serverName, newMessageData);
+            // 同步转发消息
+            MessageProcessor.sendMessageSync(userId, serverName, newMessageData);
+            int i = messageCount.incrementAndGet();
+            log.info("消息计数: {}", i);
+
         } catch (Exception e) {
             log.error("Error handling binary message", e);
         }

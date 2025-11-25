@@ -1,7 +1,6 @@
 package com.kkgame.handler;
 
 import cn.hutool.extra.spring.SpringUtil;
-import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import com.kkgame.enums.ServerNameEnum;
 import com.kkgame.manager.ClientApiManager;
@@ -37,19 +36,12 @@ public class MatchRequestHandler implements MatchMessageHandler {
     }
 
     @Override
-    public Message getDefaultMessageInstance() {
-        return MatchRequest.getDefaultInstance();
-    }
-
-    @Override
-    public void handleMessage(String userId, Message message) throws Exception {
-        MatchRequest matchRequest = (MatchRequest) message;
-        log.info("处理匹配请求，用户ID: {}, 请求内容: {}", userId, JsonFormat.printer().print(matchRequest));
-
+    public void handleMessage(String userId, MatchSubMessageData message) throws Exception {
+        log.info("处理匹配请求，用户ID: {}, 请求内容: {}", userId, JsonFormat.printer().print(message));
         if (waitingPlayers.contains(userId)) {
             return;
         }
-
+        MatchRequest matchRequest = MatchRequest.parseFrom(message.getMessage());
         waitingPlayers.add(userId);
         log.info(" 加入匹配队列 {} {} 当前人数:{}",
                 userId, matchRequest.getServerName(), waitingPlayers.size());
