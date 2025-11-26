@@ -1,5 +1,6 @@
 package com.kkgame.handler;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.kkgame.protobuf.*;
 import com.kkgame.util.MessageBuildUtil;
 import com.kkgame.util.WsMessageUtil;
@@ -19,8 +20,9 @@ public class CancelMatchHandler implements MatchMessageHandler {
     }
 
     @Override
-    public void handleMessage(String userId, MatchSubMessageData message) {
+    public void handleMessage(String userId, MatchSubMessageData message) throws Exception {
         log.info("玩家 {} 取消匹配", userId);
+        MatchRequest matchRequest = MatchRequest.parseFrom(message.getMessage());
         MessageData res = MessageBuildUtil.buildMessageData(userId, MatchMessageCode.CANCEL_MATCH,
                 MatchResponse.newBuilder()
                         .setStatusMsg(
