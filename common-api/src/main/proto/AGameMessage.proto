@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.kkgame.protobuf";
+option java_outer_classname = "AGameMessageProto";
+
+// 导入基础消息
+import "WsMessage.proto";
+
+enum AMessageCode {
+  A_DEFAULT = 0;
+  // 坐下请求 SitDownRequest SitDownResponse
+  SIT_DOWN = 1;
+}
+
+// 二级消息体
+message ASubMessageData {
+  // 命令号
+  AMessageCode messageCode = 1;
+  // 消息内容
+  bytes message = 2;
+}
+
+// 坐下请求
+message SitDownRequest {
+  // 路径
+  int32 gameId = 1;
+  // 房间id
+  int32 roomId = 2;
+}
+// 坐下响应
+message SitDownResponse {
+  // 响应信息
+  optional StatusMsg  statusMsg = 1;
+  // 游戏id
+  int32 gameId = 2;
+  // 房间id
+  int32 roomId = 3;
+}
+
