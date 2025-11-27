@@ -47,29 +47,12 @@ public class WebSocketClientTest {
         }
 
         log.info("连接阶段完成:");
-        log.info("- 成功连接: " + successConnections.get());
-        log.info("- 连接失败: " + failedConnections.get());
+        log.info("- 成功连接: {}", successConnections.get());
+        log.info("- 连接失败: {}", failedConnections.get());
 
         // 发送消息
         long startTime = System.currentTimeMillis();
-        CountDownLatch latch = new CountDownLatch(CLIENT_COUNT);
-        for (TestWebSocketClient client : clients) {
-            if (client.isConnected()) {
-                Thread thread = new Thread(() -> {
-                    try {
-                        for (int i = 0; i < MESSAGE_PER_CLIENT; i++) {
-                            client.sendMessage(createTestMessage(client.getClientId()));
-                            sentMessages.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        System.err.println("客户端 " + client.getClientId() + " 发送消息失败: " + e.getMessage());
-                    }finally {
-                        latch.countDown();
-                    }
-                });
-                thread.start();
-            }
-        }
+        CountDownLatch latch = getCountDownLatch();
         boolean await = latch.await(60, TimeUnit.SECONDS);
         if (await) {
             log.info("所有消息发送完成");
@@ -95,6 +78,28 @@ public class WebSocketClientTest {
         // 清理资源
         clients.forEach(TestWebSocketClient::close);
         log.info("测试完成");
+    }
+
+    private static CountDownLatch getCountDownLatch() {
+        CountDownLatch latch = new CountDownLatch(CLIENT_COUNT);
+        for (TestWebSocketClient client : clients) {
+            if (client.isConnected()) {
+                Thread thread = new Thread(() -> {
+                    try {
+                        for (int i = 0; i < MESSAGE_PER_CLIENT; i++) {
+                            client.sendMessage(createTestMessage(client.getClientId()));
+                            sentMessages.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        System.err.println("客户端 " + client.getClientId() + " 发送消息失败: " + e.getMessage());
+                    }finally {
+                        latch.countDown();
+                    }
+                });
+                thread.start();
+            }
+        }
+        return latch;
     }
 
     private static MessageData createTestMessage(int clientId) {
@@ -155,7 +160,7 @@ public class WebSocketClientTest {
 
         @Override
         public void onOpen(Session session, EndpointConfig config) {
-            log.info("客户端 " + clientId + " 连接打开");
+            log.info("客户端 {} 连接打开", clientId);
             this.session = session;
 
             // 添加消息处理器
