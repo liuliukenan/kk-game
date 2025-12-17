@@ -28,7 +28,7 @@
         <spring-cloud.version>2023.0.0</spring-cloud.version>
         <spring-cloud-alibaba.version>2023.0.0.0-RC1</spring-cloud-alibaba.version>
         <dubbo.version>3.2.15</dubbo.version>
-        <hutool.version>5.8.36</hutool.version>
+        <hutool.version>5.8.40</hutool.version>
         <fastjson2.version>2.0.51</fastjson2.version>
     </properties>
 

@@ -56,5 +56,8 @@ public class ProtoBase64Util {
                 .build();
         String base642 = toBase64(aSubMessageData.toByteArray(), ServerName.A_SERVICE);
         System.out.println("发送用的 Base64: " + base642);
+
+        byte[] encode = Base64.getEncoder().encode("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".getBytes());
+        System.out.println("nacos Base64: " + new String(encode));
     }
 }
