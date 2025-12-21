@@ -58,8 +58,7 @@ public enum ServerNameEnum {
     }
 
     public static boolean isStateful(String serverName) {
-        boolean stateful1 = isStateful(fetchServerNameEnum(serverName));
-        return stateful1;
+        return isStateful(fetchServerNameEnum(serverName));
     }
 
 }

@@ -1,0 +1,20 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: match-service
+  cloud:
+    nacos:
+      server-addr: 192.168.1.18:8848
+      discovery:
+        namespace: kk-game
+      config:
+        namespace: kk-game
+        file-extension: yml
+        group: DEFAULT_GROUP
+        refresh-enabled: true
+  config:
+    import:
+      - nacos:application.yml
+      - nacos:redis.yml
+      - nacos:dubbo.yml
