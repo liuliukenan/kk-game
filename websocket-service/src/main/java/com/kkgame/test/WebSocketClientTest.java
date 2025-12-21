@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class WebSocketClientTest {
-    private static final int CLIENT_COUNT = 10; // 并发客户端数量
+    private static final int CLIENT_COUNT = 1; // 并发客户端数量(改为6个,匹配dubbo线程数)
     private static final int MESSAGE_PER_CLIENT = 10000; // 每个客户端发送消息数量
 
     private static final List<TestWebSocketClient> clients = new ArrayList<>();
@@ -26,12 +26,9 @@ public class WebSocketClientTest {
     private static final AtomicInteger sentMessages = new AtomicInteger(0);
 
     public static void main(String[] args) throws InterruptedException {
-        String wsUrl = "ws://localhost:8084/websocket";
+        String wsUrl = "ws://192.168.1.18:8083/websocket";  // 确认端口号
         log.info("开始WebSocket性能测试...");
         log.info("目标: " + CLIENT_COUNT + " 个并发客户端，每个客户端发送 " + MESSAGE_PER_CLIENT + " 条消息");
-
-
-
 
         // 创建并发连接
         for (int clientId = 0; clientId < CLIENT_COUNT; clientId++) {
@@ -40,8 +37,10 @@ public class WebSocketClientTest {
                 client.connect();
                 clients.add(client);
                 successConnections.incrementAndGet();
+                // 添加短暂延迟,避免并发连接导致的NullPointerException
+                Thread.sleep(100);
             } catch (Exception e) {
-                System.err.println("客户端 " + clientId + " 连接失败: " + e);
+                log.error("客户端 {} 连接失败,尝试重连", clientId, e);
                 failedConnections.incrementAndGet();
             }
         }
@@ -71,8 +70,9 @@ public class WebSocketClientTest {
         log.info("接收消息数: {}", receivedMessages.get());
         log.info("平均连接时间: {} ms/连接", duration / Math.max(1, successConnections.get()));
 
-        if (successConnections.get() > 0) {
-            log.info("吞吐量: {} 消息/秒", sentMessages.get() / (duration / 1000));
+        if (successConnections.get() > 0 && duration > 0) {
+            double throughput = sentMessages.get() / (duration / 1000.0);
+            log.info("吞吐量: {} 消息/秒", String.format("%.2f", throughput));
         }
 
         // 清理资源
@@ -104,8 +104,13 @@ public class WebSocketClientTest {
 
     private static MessageData createTestMessage(int clientId) {
         MatchSubMessageData subMessage = MatchSubMessageData.newBuilder()
-                .setMessageCode(MatchMessageCode.CANCEL_MATCH)
-                .setMessage(MatchRequest.newBuilder().setServerName(ServerName.A_SERVICE).build().toByteString())
+                .setMessageCode(MatchMessageCode.CANCEL_MATCH)  // 改为MATCH,才会被处理
+                .setMessage(
+                        MatchRequest.newBuilder()
+                                .setServerName(ServerName.A_SERVICE)
+                                .setMsgId(sentMessages.get())
+                                .build().toByteString()
+                )
                 .build();
 
         return MessageData.newBuilder()
@@ -132,13 +137,13 @@ public class WebSocketClientTest {
         public void connect() throws Exception {
             // 生成JWT token
             Map<String, Object> claims = new HashMap<>();
-            claims.put("userId", clientId);
+            claims.put("userId", String.valueOf(clientId));  // 确保使用String类型
             String token = Jwts.builder()
                     .setClaims(claims)
                     .setSubject("websocket-user")
                     .setIssuedAt(new Date(System.currentTimeMillis()))
                     .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
-                    .signWith(SignatureAlgorithm.HS512, "s3cr3t_k3y_w1th_m0r3_r4nd0mn3ss_f0r_w3bs0ck3t_s3rv1c3_2025")
+                    .signWith(SignatureAlgorithm.HS512, "websocket_service_secret_key")
                     .compact();
 
             URI uri = URI.create(wsUrl);
@@ -163,10 +168,13 @@ public class WebSocketClientTest {
             log.info("客户端 {} 连接打开", clientId);
             this.session = session;
 
-            // 添加消息处理器
-            session.addMessageHandler((MessageHandler.Whole<ByteBuffer>) message -> {
-                receivedMessages.incrementAndGet();
-                log.info("客户端 {} 接收到消息，大小: {} 字节", clientId, message.remaining());
+            // 添加消息处理器 - 使用具体类型而不是Lambda表达式避免Tomcat类型推断问题
+            session.addMessageHandler(new MessageHandler.Whole<ByteBuffer>() {
+                @Override
+                public void onMessage(ByteBuffer message) {
+                    receivedMessages.incrementAndGet();
+                    log.info("客户端 {} 接收到消息，大小: {} 字节", clientId, message.remaining());
+                }
             });
         }
 

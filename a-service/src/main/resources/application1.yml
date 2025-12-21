@@ -1,0 +1,58 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: a-service
+  cloud:
+    nacos:
+      server-addr: 192.168.1.18:8848
+      discovery:
+        namespace: kk-game
+      config:
+        namespace: kk-game
+        file-extension: yml
+        group: DEFAULT_GROUP
+        refresh-enabled: true
+  config:
+    import:
+      - nacos:application.yml
+
+
+
+  # redis 配置
+  data:
+    redis:
+      host: 192.168.1.18
+      port: 6379
+      database: 0
+      timeout: 2000ms  # 确保此格式正确
+
+# Dubbo 配置
+dubbo:
+  application:
+    name: ${spring.application.name}
+    qos-enable: false
+  registry:
+    parameters:
+      namespace: dubbo
+    address: nacos://${spring.cloud.nacos.server-addr}?namespace=${dubbo.registry.parameters.namespace}
+  protocol:
+    name: dubbo
+    port: -1
+    # 线程池配置 - 根据业务调整
+    threads: 200              # 增加到200(默认值)
+    queues: 100                 # 队列大小,0表示不排队 超过的会被丢弃
+    threadpool: fixed         # 固定线程池
+    # 连接配置
+    accepts: 1000             # 最大接受连接数
+    payload: 8388608          # 最大消息长度 8MB
+  provider:
+    timeout: 3000             # 减少到3秒
+    retries: 0                # 不重试(非幂等操作)
+    load balance: roundrobin   # 轮询负载均衡
+    cluster: failfast         # 快速失败
+  consumer:
+    timeout: 3000             # 减少到3秒
+    retries: 0                # 不重试
+    check: false              # 启动时不检查
+    connections: 10           # 每个提供者的连接数

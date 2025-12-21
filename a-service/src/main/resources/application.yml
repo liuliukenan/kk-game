@@ -16,34 +16,5 @@ spring:
   config:
     import:
       - nacos:application.yml
-
-
-
-  # redis 配置
-  data:
-    redis:
-      host: 192.168.1.18
-      port: 6379
-      database: 0
-      timeout: 2000ms  # 确保此格式正确
-
-# Dubbo 配置
-dubbo:
-  application:
-    name: ${spring.application.name}
-    qos-enable: false
-  registry:
-    parameters:
-      namespace: dubbo
-    address: nacos://${spring.cloud.nacos.server-addr}?namespace=${dubbo.registry.parameters.namespace}
-  protocol:
-    name: dubbo
-    port: -1
-    threads: 200
-  provider:
-    timeout: 5000
-    retries: 0
-  consumer:
-    timeout: 5000
-    retries: 0
-    check: false
+      - nacos:dubbo.yml
+      - nacos:redis.yml

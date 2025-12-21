@@ -32,9 +32,9 @@ public class MatchDubboApiImpl implements DubboApi {
             // 使用命令模式处理消息
             MatchMessageHandler handler = messageHandlerMap.get(messageCode);
             if (handler != null) {
-                log.info("处理消息 clientId: {} messageCode: {} thread:{}", clientId, messageCode, Thread.currentThread().getName());
+//                log.info("处理消息 clientId: {} messageCode: {} thread:{}", clientId, messageCode, Thread.currentThread().getName());
                 handler.handleMessage(clientId, subMessageData);
-                log.info("处理消息完成 clientId: {} messageCode: {}", clientId, messageCode);
+//                log.info("处理消息完成 clientId: {} messageCode: {}", clientId, messageCode);
             } else {
                 log.warn("未找到消息处理器 clientId: {} messageCode: {} thread:{}", clientId, messageCode, Thread.currentThread().getName());
             }

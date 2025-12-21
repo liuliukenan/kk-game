@@ -27,6 +27,7 @@ message MatchSubMessageData {
 message MatchRequest {
   // 游戏服务
   ServerName serverName = 1;
+  optional int32 msgId = 2;
 }
 // 匹配响应
 message MatchResponse {
