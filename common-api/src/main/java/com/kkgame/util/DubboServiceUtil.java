@@ -1,12 +1,18 @@
 package com.kkgame.util;
 
 import cn.hutool.extra.spring.SpringUtil;
+import com.alibaba.cloud.nacos.NacosDiscoveryProperties;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.random.RandomGenerator;
 
@@ -47,10 +53,10 @@ public class DubboServiceUtil {
     public static String getLocalServiceInstanceInfo() {
         try {
             NamingService bean = SpringUtil.getBean("dubboNamingService");
-
             List<Instance> instances = bean.getAllInstances(build(CommonUtil.fetchLocalServerName()));
-
-            String localIp = java.net.InetAddress.getLocalHost().getHostAddress();
+            NacosDiscoveryProperties nacosDiscoveryProperties = SpringUtil.getBean(NacosDiscoveryProperties.class);
+            String localIp = nacosDiscoveryProperties.getIp();
+            log.info("localIp :{}", localIp);
             if (!instances.isEmpty()) {
                 for (Instance instance : instances) {
                     if (instance.getIp().equals(localIp)) {
@@ -63,7 +69,6 @@ public class DubboServiceUtil {
         }
         throw new RuntimeException("Failed to fetchDubboApi service instance info");
     }
-
 
     /**
      * 生成标准 Dubbo serviceName

@@ -11,7 +11,7 @@ import java.util.Properties;
 @Configuration
 public class NacosConfig {
 
-    @Value("${spring.cloud.nacos.discovery.server-addr}")
+    @Value("${spring.cloud.nacos.server-addr}")
     private String serverAddr;
 
     @Value("${spring.cloud.nacos.discovery.namespace:}")

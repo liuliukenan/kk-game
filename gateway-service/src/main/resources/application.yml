@@ -1,3 +1,6 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: gateway-service
@@ -11,8 +14,14 @@ spring:
         file-extension: yml
         group: DEFAULT_GROUP
         refresh-enabled: true
+    gateway:
+      routes:
+        - id: websocket-service-route
+          uri: lb:ws://websocket-service  # 使用WebSocket协议负载均衡转发到 websocket-service
+          predicates:
+            - Path=/ws/**                 # 匹配 WebSocket 路径前缀
+          filters:
+            - StripPrefix=1               # 转发时去掉前缀 /ws
   config:
     import:
-      - nacos:application.yml
-      - nacos:redis.yml
       - nacos:gateway-server.yml

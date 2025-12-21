@@ -48,14 +48,15 @@ public class WebSocketService {
                 log.info("关闭用户 {} 在当前服务器上的旧连接", userId);
             }
 
+            // 存储用户与websocket实例的映射关系到Redis
+            storeUserWebSocketMapping(userId);
+
             // 向所有ws服务实例广播连接建立消息
             notifyAllInstances(userId, session.getId());
 
             // 建立新连接
             addSession(userId, session);
 
-            // 存储用户与websocket实例的映射关系到Redis
-            storeUserWebSocketMapping(userId);
         } else {
             // 这种情况不应该发生，因为拦截器已经拒绝了匿名连接
             log.error("意外的匿名连接: {}", session.getId());
