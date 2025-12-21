@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @DubboService(group = "match-service")
 @Service
@@ -19,6 +20,8 @@ public class MatchDubboApiImpl implements DubboApi {
 
     @Resource
     Map<MatchMessageCode, MatchMessageHandler> messageHandlerMap;
+
+    private static final Map<String, Thread> threadMap = new ConcurrentHashMap<>();
 
     @Override
     public void processMessageProto(byte[] bytes) {
@@ -34,7 +37,18 @@ public class MatchDubboApiImpl implements DubboApi {
             // 使用命令模式处理消息
             MatchMessageHandler handler = messageHandlerMap.get(messageCode);
             if (handler != null) {
-                handler.handleMessage(clientId, subMessageData);
+                Thread thread = Thread.currentThread();
+                threadMap.put(thread.getName(), thread);
+                threadMap.forEach((k, v) -> {
+                    log.info("线程: {} 状态: {} 是否存活: {}",
+                            v.getName(),
+                            v.getState(),
+                            v.isAlive());
+                });
+
+                log.info("处理消息 clientId: {} messageCode: {} thread:{}", clientId, messageCode, Thread.currentThread().getName());
+//                handler.handleMessage(clientId, subMessageData);
+//                log.info("处理消息完成 clientId: {} messageCode: {}", clientId, messageCode);
             } else {
                 log.warn("未找到消息处理器 clientId: {} messageCode: {}", clientId, messageCode);
             }

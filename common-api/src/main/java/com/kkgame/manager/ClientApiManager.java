@@ -61,9 +61,11 @@ public class ClientApiManager {
 
         // 先尝试无锁获取ReferenceConfig实例
         ReferenceConfig<DubboApi> reference = referenceCache.get(referenceCacheKey);
+        log.info("referenceCache size {}", referenceCache.size());
         if (reference == null) {
             // 获取针对该referenceCacheKey的锁
             Lock lock = locks.computeIfAbsent(referenceCacheKey, k -> new ReentrantLock());
+            log.info("locks size {}", locks.size());
 
             lock.lock();
             try {
@@ -96,11 +98,14 @@ public class ClientApiManager {
                 }
             } finally {
                 lock.unlock();
+                locks.remove(referenceCacheKey);
             }
         }
 
         // 每次都通过ReferenceConfig获取新的DubboApi代理实例
-        return reference.get();
+        DubboApi dubboApi = reference.get();
+        log.info("dubboApi {}", dubboApi.hashCode());
+        return dubboApi;
     }
 
     private static String fetchIpAndPort(String userId, String serverName) {
