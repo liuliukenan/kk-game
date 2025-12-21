@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: 8081
 spring:
   application:
     name: a-service
@@ -47,8 +47,3 @@ dubbo:
     timeout: 5000
     retries: 0
     check: false
-
-
-logging:
-  level:
-    org.springframework.boot.context.properties: DEBUG

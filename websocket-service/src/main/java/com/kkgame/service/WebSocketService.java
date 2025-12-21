@@ -4,11 +4,11 @@ import com.google.protobuf.util.JsonFormat;
 import com.kkgame.constans.RedisKeyUtil;
 import com.kkgame.enums.ServerNameEnum;
 import com.kkgame.listener.ConnectionCloseListener;
+import com.kkgame.manager.ClientApiManager;
 import com.kkgame.manager.SessionManager;
 import com.kkgame.protobuf.ConnectionNotification;
 import com.kkgame.protobuf.MessageData;
 import com.kkgame.protobuf.ServerName;
-import com.kkgame.manager.ClientApiManager;
 import com.kkgame.util.CommonUtil;
 import com.kkgame.util.DubboServiceUtil;
 import com.kkgame.util.MessageProcessor;
@@ -21,7 +21,6 @@ import org.springframework.web.socket.WebSocketSession;
 
 import javax.annotation.Resource;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
@@ -34,8 +33,6 @@ public class WebSocketService {
     // 注入会话管理器
     @Resource
     private SessionManager sessionManager;
-
-    private final AtomicInteger messageCount = new AtomicInteger(0);
 
 
     public void handleConnectionEstablished(WebSocketSession session) {
@@ -88,11 +85,10 @@ public class WebSocketService {
             log.info("转发给{}服务, userId: {}", serverName, userId);
 
             // 异步转发消息
-//            MessageProcessor.sendMessage(userId, serverName, newMessageData);
+            MessageProcessor.sendMessage(userId, serverName, newMessageData);
             // 同步转发消息
-            MessageProcessor.sendMessageSync(userId, serverName, newMessageData);
-            int i = messageCount.incrementAndGet();
-            log.info("消息计数: {}", i);
+//            MessageProcessor.sendMessageSync(userId, serverName, newMessageData);
+            log.info("处理完成: {}", userId);
 
         } catch (Exception e) {
             log.error("Error handling binary message", e);

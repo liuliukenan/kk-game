@@ -11,8 +11,6 @@
     </parent>
 
     <artifactId>match-service</artifactId>
-    <name>Match Service</name>
-    <description>Match Service for player matching</description>
 
     <dependencies>
         <dependency>
@@ -27,4 +25,13 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
