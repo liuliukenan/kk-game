@@ -21,7 +21,6 @@ public class MatchDubboApiImpl implements DubboApi {
     @Resource
     Map<MatchMessageCode, MatchMessageHandler> messageHandlerMap;
 
-    private static final Map<String, Thread> threadMap = new ConcurrentHashMap<>();
 
     @Override
     public void processMessageProto(byte[] bytes) {
@@ -29,28 +28,15 @@ public class MatchDubboApiImpl implements DubboApi {
             MessageData messageData = MessageData.parseFrom(bytes);
             String clientId = messageData.getUserId();
             MatchSubMessageData subMessageData = MatchSubMessageData.parseFrom(messageData.getMessage());
-    //        log.info("收到消息 clientId: {} messageData: {}", clientId, JsonFormat.printer().print(messageData));
-    //        log.info("收到消息 clientId: {} subMessageData: {}", clientId, JsonFormat.printer().print(subMessageData));
-
             MatchMessageCode messageCode = subMessageData.getMessageCode();
-
             // 使用命令模式处理消息
             MatchMessageHandler handler = messageHandlerMap.get(messageCode);
             if (handler != null) {
-                Thread thread = Thread.currentThread();
-                threadMap.put(thread.getName(), thread);
-                threadMap.forEach((k, v) -> {
-                    log.info("线程: {} 状态: {} 是否存活: {}",
-                            v.getName(),
-                            v.getState(),
-                            v.isAlive());
-                });
-
                 log.info("处理消息 clientId: {} messageCode: {} thread:{}", clientId, messageCode, Thread.currentThread().getName());
-//                handler.handleMessage(clientId, subMessageData);
-//                log.info("处理消息完成 clientId: {} messageCode: {}", clientId, messageCode);
+                handler.handleMessage(clientId, subMessageData);
+                log.info("处理消息完成 clientId: {} messageCode: {}", clientId, messageCode);
             } else {
-                log.warn("未找到消息处理器 clientId: {} messageCode: {}", clientId, messageCode);
+                log.warn("未找到消息处理器 clientId: {} messageCode: {} thread:{}", clientId, messageCode, Thread.currentThread().getName());
             }
         } catch (Exception e) {
             log.error("处理消息失败 bytes: {}", ByteString.copyFrom(bytes), e);

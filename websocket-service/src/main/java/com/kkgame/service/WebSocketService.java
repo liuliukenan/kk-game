@@ -84,7 +84,7 @@ public class WebSocketService {
 
             log.info("转发给{}服务, userId: {}", serverName, userId);
 
-            // 异步转发消息
+            // 异步转发消息（玩家有序）
             MessageProcessor.sendMessage(userId, serverName, newMessageData);
             // 同步转发消息
 //            MessageProcessor.sendMessageSync(userId, serverName, newMessageData);
